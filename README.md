@@ -14,11 +14,15 @@ Plataforma web multiempresa para administrar sucursales, empleados, clientes, se
 
 La fundación técnica y el primer recorrido de identidad están implementados:
 
-- Portada, registro e inicio/cierre de sesión con Neon Auth.
-- Onboarding de empresa, propietario, sucursal y primer empleado.
+- Portada e inicio/cierre de sesión con Neon Auth.
+- Registro público deshabilitado tanto en Neon como en la aplicación.
+- Panel exclusivo de superadministración para crear empresas y usuarios.
 - Esquema multiempresa de 16 tablas con claves compuestas de aislamiento.
 - Agenda diaria con una columna por empleado y navegación por fecha.
 - Restricción PostgreSQL que impide citas solapadas para un empleado.
+
+Las cuentas no se crean desde el login. El superadministrador registra cada
+empresa, genera las credenciales iniciales y asigna el rol correspondiente.
 
 Consulta [IMPLEMENTACION.md](./IMPLEMENTACION.md) para ver el avance y las siguientes tareas.
 

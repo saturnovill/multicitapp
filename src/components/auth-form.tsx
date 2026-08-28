@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 
@@ -10,11 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type AuthFormProps = {
-  mode: "login" | "register";
-};
-
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm() {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,14 +24,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     const password = String(formData.get("password") ?? "");
 
     try {
-      const result =
-        mode === "register"
-          ? await authClient.signUp.email({
-              email,
-              password,
-              name: String(formData.get("name") ?? "").trim(),
-            })
-          : await authClient.signIn.email({ email, password });
+      const result = await authClient.signIn.email({ email, password });
 
       if (result.error) {
         setError(
@@ -55,25 +43,8 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
-  const isRegister = mode === "register";
-
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
-      {isRegister ? (
-        <div className="space-y-2">
-          <Label htmlFor="name">Nombre completo</Label>
-          <Input
-            id="name"
-            name="name"
-            autoComplete="name"
-            placeholder="María González"
-            required
-            minLength={2}
-            disabled={isPending}
-          />
-        </div>
-      ) : null}
-
       <div className="space-y-2">
         <Label htmlFor="email">Correo electrónico</Label>
         <Input
@@ -90,15 +61,13 @@ export function AuthForm({ mode }: AuthFormProps) {
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-4">
           <Label htmlFor="password">Contraseña</Label>
-          {!isRegister ? (
-            <span className="text-xs text-muted-foreground">Mínimo 8 caracteres</span>
-          ) : null}
+          <span className="text-xs text-muted-foreground">Acceso autorizado</span>
         </div>
         <Input
           id="password"
           name="password"
           type="password"
-          autoComplete={isRegister ? "new-password" : "current-password"}
+          autoComplete="current-password"
           minLength={8}
           required
           disabled={isPending}
@@ -118,17 +87,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         {isPending ? (
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
         ) : null}
-        {isRegister ? "Crear cuenta" : "Iniciar sesión"}
+        Iniciar sesión
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        {isRegister ? "¿Ya tienes una cuenta?" : "¿Aún no tienes cuenta?"}{" "}
-        <Link
-          className="font-medium text-violet-700 underline-offset-4 hover:underline"
-          href={isRegister ? "/login" : "/registro"}
-        >
-          {isRegister ? "Inicia sesión" : "Regístrate"}
-        </Link>
+        Las cuentas son creadas exclusivamente por el administrador.
       </p>
     </form>
   );

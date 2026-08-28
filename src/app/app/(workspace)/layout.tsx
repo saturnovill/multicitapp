@@ -19,7 +19,7 @@ export default async function WorkspaceLayout({
   if (!session?.user) redirect("/login");
 
   const context = await getTenantContext(session.user.id);
-  if (!context) redirect("/app/onboarding");
+  if (!context) redirect("/app/sin-acceso");
 
   async function signOut() {
     "use server";

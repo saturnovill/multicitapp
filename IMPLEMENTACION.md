@@ -42,7 +42,7 @@ Una tarea se considera terminada cuando:
 - [x] Instalar Drizzle ORM, Drizzle Kit y el driver serverless de Neon.
 - [x] Crear configuración de migraciones.
 - [x] Añadir scripts `db:generate`, `db:migrate` y `db:studio`.
-- [ ] Añadir un script `db:seed` independiente del onboarding.
+- [ ] Añadir un script `db:seed` opcional para datos de desarrollo.
 - [x] Implementar inicialización diferida para que el build no falle sin variables.
 
 ## Entrega 1 — Identidad y multiempresa
@@ -57,18 +57,21 @@ Una tarea se considera terminada cuando:
 
 ### T-102 Autenticación
 
-- [x] Implementar registro inicial, inicio y cierre de sesión.
+- [x] Implementar inicio y cierre de sesión.
+- [x] Deshabilitar el autorregistro en Neon Auth y en la ruta pública.
+- [x] Crear una cuenta inicial de superadministrador.
 - [ ] Implementar invitaciones de usuarios a empresas.
 - [ ] Implementar recuperación y cambio de contraseña.
 - [x] Crear sesión segura en cookie `httpOnly` mediante Neon Auth.
 - [ ] Añadir rate limiting a los endpoints de acceso.
-- [x] Crear pantallas de registro y acceso conectadas a Neon Auth.
+- [x] Crear pantalla de acceso conectada a Neon Auth.
 
 ### T-103 Autorización
 
 - [x] Crear una capa de acceso a datos que valide sesión y empresa activa.
 - [x] Definir roles: plataforma, propietario, administrador, gerente, recepción y empleado.
 - [x] Filtrar las consultas actuales por empresa y sucursal activas.
+- [x] Crear panel exclusivo para altas de empresas y usuarios.
 - [ ] Implementar selector de empresa y sucursal.
 - [ ] Probar que una empresa no puede leer ni modificar datos de otra.
 
@@ -82,6 +85,7 @@ Una tarea se considera terminada cuando:
 
 ### T-201 Empresas y sucursales
 
+- [x] Alta inicial de empresa y sucursal por el superadministrador.
 - [ ] CRUD de datos generales de empresa.
 - [ ] CRUD de sucursales y horarios semanales.
 - [ ] Días festivos, cierres y horarios especiales.

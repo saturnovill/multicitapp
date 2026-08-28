@@ -34,7 +34,7 @@ export default async function AgendaPage({
   if (!session?.user) redirect("/login");
 
   const context = await getTenantContext(session.user.id);
-  if (!context) redirect("/app/onboarding");
+  if (!context) redirect("/app/sin-acceso");
   if (!context.branch) throw new Error("La empresa no tiene una sucursal activa");
 
   const params = await searchParams;

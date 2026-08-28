@@ -37,12 +37,9 @@ export default function HomePage() {
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <header className="flex h-20 items-center justify-between">
           <BrandMark />
-          <nav className="flex items-center gap-2">
-            <Button variant="ghost" asChild>
-              <Link href="/login">Iniciar sesión</Link>
-            </Button>
+          <nav>
             <Button asChild className="bg-violet-600 hover:bg-violet-700">
-              <Link href="/registro">Crear cuenta</Link>
+              <Link href="/login">Acceso autorizado</Link>
             </Button>
           </nav>
         </header>
@@ -67,19 +64,19 @@ export default function HomePage() {
                 asChild
                 className="h-12 bg-violet-600 px-6 shadow-lg shadow-violet-600/15 hover:bg-violet-700"
               >
-                <Link href="/registro">
-                  Configurar mi empresa
+                <Link href="/login">
+                  Ingresar a la plataforma
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild className="h-12 bg-white">
-                <Link href="/login">Ya tengo una cuenta</Link>
+                <Link href="#funciones">Conocer funciones</Link>
               </Button>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4 pb-20 md:grid-cols-3">
+        <section id="funciones" className="grid scroll-mt-8 gap-4 pb-20 md:grid-cols-3">
           {features.map(({ icon: Icon, title, description }) => (
             <article
               key={title}

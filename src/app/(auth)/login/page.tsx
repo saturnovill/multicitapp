@@ -14,7 +14,7 @@ export default function LoginPage() {
       <p className="mb-8 mt-3 text-sm leading-6 text-muted-foreground">
         Accede a la operación diaria de tu empresa.
       </p>
-      <AuthForm mode="login" />
+      <AuthForm />
     </div>
   );
 }
