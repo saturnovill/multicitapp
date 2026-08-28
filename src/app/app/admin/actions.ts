@@ -104,7 +104,7 @@ export async function createCompanyAction(
       }),
     ]);
 
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin", "layout");
     return { status: "success", message: "Empresa y sucursal creadas" };
   } catch (error) {
     console.error("[admin:create-company] failed", { error: String(error) });
@@ -209,7 +209,7 @@ export async function createUserAction(
       throw error;
     }
 
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin", "layout");
     return { status: "success", message: "Usuario creado y asignado" };
   } catch (error) {
     console.error("[admin:create-user] failed", { error: String(error) });

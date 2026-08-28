@@ -55,121 +55,101 @@ function ActionMessage({ state }: { state: AdminActionState }) {
   );
 }
 
-export function AdminForms({ companies }: { companies: CompanyOption[] }) {
+export function CompanyForm() {
   const [companyState, companyAction] = useActionState(
     createCompanyAction,
     initialState,
   );
+
+  return (
+    <Card>
+      <CardHeader>
+        <span className="mb-2 grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-700">
+          <Building2 className="size-4" />
+        </span>
+        <CardTitle>Nueva empresa</CardTitle>
+        <CardDescription>Crea la organización y su primera sucursal.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={companyAction} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="companyName">Empresa</Label>
+            <Input id="companyName" name="companyName" required minLength={2} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="branchName">Sucursal principal</Label>
+            <Input id="branchName" name="branchName" required minLength={2} />
+          </div>
+          <input type="hidden" name="timezone" value="America/Hermosillo" />
+          <ActionMessage state={companyState} />
+          <SubmitButton>Crear empresa</SubmitButton>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function UserForm({ companies }: { companies: CompanyOption[] }) {
   const [userState, userAction] = useActionState(createUserAction, initialState);
+
+  return (
+    <Card>
+      <CardHeader>
+        <span className="mb-2 grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-700">
+          <UserPlus className="size-4" />
+        </span>
+        <CardTitle>Nuevo usuario</CardTitle>
+        <CardDescription>Crea sus credenciales y asígnalo a una empresa.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={userAction} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="userName">Nombre</Label>
+            <Input id="userName" name="name" required minLength={2} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="userEmail">Correo</Label>
+            <Input id="userEmail" name="email" type="email" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="userPassword">Contraseña inicial</Label>
+            <Input id="userPassword" name="password" type="password" autoComplete="new-password" minLength={12} required />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="companyId">Empresa</Label>
+              <select id="companyId" name="companyId" required defaultValue="" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                <option value="" disabled>Seleccionar</option>
+                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Rol</Label>
+              <select id="role" name="role" required defaultValue="employee" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                <option value="owner">Propietario</option>
+                <option value="admin">Administrador</option>
+                <option value="manager">Gerente</option>
+                <option value="receptionist">Recepción</option>
+                <option value="employee">Empleado</option>
+              </select>
+            </div>
+          </div>
+          <ActionMessage state={userState} />
+          <SubmitButton>Crear usuario</SubmitButton>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function PasswordForm() {
   const [passwordState, passwordAction] = useActionState(
     changeAdminPasswordAction,
     initialState,
   );
 
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
-      <Card>
-        <CardHeader>
-          <span className="mb-2 grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-700">
-            <Building2 className="size-4" />
-          </span>
-          <CardTitle>Nueva empresa</CardTitle>
-          <CardDescription>
-            Crea la organización y su primera sucursal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={companyAction} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="companyName">Empresa</Label>
-              <Input id="companyName" name="companyName" required minLength={2} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="branchName">Sucursal principal</Label>
-              <Input id="branchName" name="branchName" required minLength={2} />
-            </div>
-            <input type="hidden" name="timezone" value="America/Hermosillo" />
-            <ActionMessage state={companyState} />
-            <SubmitButton>Crear empresa</SubmitButton>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <span className="mb-2 grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-700">
-            <UserPlus className="size-4" />
-          </span>
-          <CardTitle>Nuevo usuario</CardTitle>
-          <CardDescription>
-            Crea sus credenciales y asígnalo a una empresa.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={userAction} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="userName">Nombre</Label>
-              <Input id="userName" name="name" required minLength={2} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="userEmail">Correo</Label>
-              <Input id="userEmail" name="email" type="email" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="userPassword">Contraseña inicial</Label>
-              <Input
-                id="userPassword"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={12}
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="companyId">Empresa</Label>
-                <select
-                  id="companyId"
-                  name="companyId"
-                  required
-                  defaultValue=""
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                >
-                  <option value="" disabled>
-                    Seleccionar
-                  </option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Rol</Label>
-                <select
-                  id="role"
-                  name="role"
-                  required
-                  defaultValue="employee"
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                >
-                  <option value="owner">Propietario</option>
-                  <option value="admin">Administrador</option>
-                  <option value="manager">Gerente</option>
-                  <option value="receptionist">Recepción</option>
-                  <option value="employee">Empleado</option>
-                </select>
-              </div>
-            </div>
-            <ActionMessage state={userState} />
-            <SubmitButton>Crear usuario</SubmitButton>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
+    <Card>
         <CardHeader>
           <span className="mb-2 grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-700">
             <KeyRound className="size-4" />
@@ -207,7 +187,16 @@ export function AdminForms({ companies }: { companies: CompanyOption[] }) {
             <SubmitButton>Actualizar contraseña</SubmitButton>
           </form>
         </CardContent>
-      </Card>
+    </Card>
+  );
+}
+
+export function AdminForms({ companies }: { companies: CompanyOption[] }) {
+  return (
+    <div className="grid gap-5 lg:grid-cols-3">
+      <CompanyForm />
+      <UserForm companies={companies} />
+      <PasswordForm />
     </div>
   );
 }
