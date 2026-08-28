@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { and, asc, count, eq } from "drizzle-orm";
+import Link from "next/link";
+import { ListFilter } from "lucide-react";
 
 import { AdminPageHeader } from "@/components/admin-page-header";
 import { BranchSelector } from "@/components/branch-selector";
+import { Button } from "@/components/ui/button";
 import { getDb } from "@/db";
 import { branches, companies, employeeBranches } from "@/db/schema";
 
@@ -43,6 +46,7 @@ export default async function AdminAppointmentsPage() {
         eyebrow="Operación global"
         title="Citas"
         description="Selecciona una empresa y sucursal antes de abrir su calendario diario."
+        action={<Button variant="outline" asChild><Link href="/app/admin/citas/listado"><ListFilter />Ver listado</Link></Button>}
       />
       <BranchSelector
         branches={branchRows.map((branch) => ({

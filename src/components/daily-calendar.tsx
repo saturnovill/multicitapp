@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import { CalendarX2 } from "lucide-react";
+
+import { EditAppointmentDialog, type EditableAppointment } from "@/components/edit-appointment-dialog";
 
 type CalendarEmployee = {
   id: string;
@@ -6,19 +11,17 @@ type CalendarEmployee = {
   color: string;
 };
 
-type CalendarAppointment = {
-  id: string;
-  employeeId: string;
-  customerName: string;
-  startsAt: Date;
-  endsAt: Date;
-  status: string;
-};
+type CalendarAppointment = EditableAppointment;
 
 type DailyCalendarProps = {
   employees: CalendarEmployee[];
   appointments: CalendarAppointment[];
   timezone: string;
+  companyId: string;
+  branchId: string;
+  canManageAppointments: boolean;
+  customers: { id: string; name: string; phone: string | null }[];
+  services: { id: string; name: string; durationMinutes: number; priceCents: number; currency: string }[];
 };
 
 const START_HOUR = 8;
@@ -57,7 +60,13 @@ export function DailyCalendar({
   employees,
   appointments,
   timezone,
+  companyId,
+  branchId,
+  canManageAppointments,
+  customers,
+  services,
 }: DailyCalendarProps) {
+  const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null);
   if (employees.length === 0) {
     return (
       <div className="grid min-h-96 place-items-center rounded-xl border border-dashed bg-white p-8 text-center">
@@ -130,15 +139,20 @@ export function DailyCalendar({
             >
               {(appointmentsByEmployee.get(employee.id) ?? []).map(
                 (appointment) => {
-                  const start = minutesInTimezone(appointment.startsAt, timezone);
-                  const end = minutesInTimezone(appointment.endsAt, timezone);
+                  const startsAt = new Date(appointment.startsAt);
+                  const endsAt = new Date(appointment.endsAt);
+                  const start = minutesInTimezone(startsAt, timezone);
+                  const end = minutesInTimezone(endsAt, timezone);
                   const top = ((start - START_HOUR * 60) / 60) * HOUR_HEIGHT;
                   const height = Math.max(((end - start) / 60) * HOUR_HEIGHT, 44);
 
                   return (
-                    <article
+                    <button
+                      type="button"
                       key={appointment.id}
-                      className="absolute inset-x-2 overflow-hidden rounded-lg border-l-4 bg-violet-50 px-2.5 py-2 text-violet-950 shadow-sm"
+                      disabled={!canManageAppointments}
+                      onClick={() => setSelectedAppointment(appointment)}
+                      className="absolute inset-x-2 overflow-hidden rounded-lg border-l-4 bg-violet-50 px-2.5 py-2 text-left text-violet-950 shadow-sm transition hover:bg-violet-100 disabled:cursor-default disabled:hover:bg-violet-50"
                       style={{
                         top,
                         height,
@@ -153,10 +167,10 @@ export function DailyCalendar({
                           timeZone: timezone,
                           hour: "2-digit",
                           minute: "2-digit",
-                        }).format(appointment.startsAt)}{" "}
+                        }).format(startsAt)}{" "}
                         · {statusLabel[appointment.status] ?? appointment.status}
                       </p>
-                    </article>
+                    </button>
                   );
                 },
               )}
@@ -164,6 +178,20 @@ export function DailyCalendar({
           ))}
         </div>
       </div>
+      {selectedAppointment ? (
+        <EditAppointmentDialog
+          key={selectedAppointment.id}
+          open
+          onOpenChange={(nextOpen) => { if (!nextOpen) setSelectedAppointment(null); }}
+          appointment={selectedAppointment}
+          companyId={companyId}
+          branchId={branchId}
+          timezone={timezone}
+          employees={employees}
+          customers={customers}
+          services={services}
+        />
+      ) : null}
     </div>
   );
 }

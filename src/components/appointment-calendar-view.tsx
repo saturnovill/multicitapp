@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { and, asc, eq, sql } from "drizzle-orm";
-import { ArrowLeftRight, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { ArrowLeftRight, ChevronLeft, ChevronRight, ListFilter, MapPin } from "lucide-react";
 
 import { DailyCalendar } from "@/components/daily-calendar";
 import { NewAppointmentDialog } from "@/components/new-appointment-dialog";
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/db";
-import { appointments, customers, employeeBranches, employees, services } from "@/db/schema";
+import { appointmentServices, appointments, customers, employeeBranches, employees, services } from "@/db/schema";
 
 type AppointmentCalendarViewProps = {
   companyId: string;
@@ -15,6 +15,7 @@ type AppointmentCalendarViewProps = {
   basePath: string;
   selectedDate?: string;
   selectorHref?: string;
+  listHref: string;
   canManageAppointments: boolean;
 };
 
@@ -38,6 +39,7 @@ export async function AppointmentCalendarView({
   basePath,
   selectedDate,
   selectorHref,
+  listHref,
   canManageAppointments,
 }: AppointmentCalendarViewProps) {
   const timezone = branch.timezone ?? companyTimezone;
@@ -50,7 +52,7 @@ export async function AppointmentCalendarView({
   const date = validDate(selectedDate) ?? today;
   const db = getDb();
 
-  const [team, dailyAppointments, customerRows, serviceRows] = await Promise.all([
+  const [team, dailyAppointments, appointmentServiceRows, customerRows, serviceRows] = await Promise.all([
     db
       .select({ id: employees.id, name: employees.name, color: employees.color })
       .from(employees)
@@ -73,10 +75,12 @@ export async function AppointmentCalendarView({
       .select({
         id: appointments.id,
         employeeId: appointments.employeeId,
+        customerId: appointments.customerId,
         customerName: customers.name,
         startsAt: appointments.startsAt,
         endsAt: appointments.endsAt,
         status: appointments.status,
+        notes: appointments.notes,
       })
       .from(appointments)
       .innerJoin(
@@ -92,6 +96,11 @@ export async function AppointmentCalendarView({
         ),
       )
       .orderBy(asc(appointments.startsAt)),
+    db
+      .select({ appointmentId: appointmentServices.appointmentId, serviceId: appointmentServices.serviceId })
+      .from(appointmentServices)
+      .innerJoin(appointments, and(eq(appointments.id, appointmentServices.appointmentId), eq(appointments.companyId, companyId)))
+      .where(and(eq(appointments.companyId, companyId), eq(appointments.branchId, branch.id), sql`${appointments.startsAt} >= (${date}::date::timestamp at time zone ${timezone})`, sql`${appointments.startsAt} < ((${date}::date + interval '1 day')::timestamp at time zone ${timezone})`)),
     canManageAppointments
       ? db.select({ id: customers.id, name: customers.name, phone: customers.phone }).from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name)).limit(500)
       : Promise.resolve([]),
@@ -107,6 +116,10 @@ export async function AppointmentCalendarView({
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${date}T12:00:00Z`));
+  const servicesByAppointment = new Map<string, string[]>();
+  for (const row of appointmentServiceRows) {
+    servicesByAppointment.set(row.appointmentId, [...(servicesByAppointment.get(row.appointmentId) ?? []), row.serviceId]);
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -120,6 +133,7 @@ export async function AppointmentCalendarView({
           <p className="mt-1 capitalize text-sm text-muted-foreground">{label}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild><Link href={listHref}><ListFilter /> Ver listado</Link></Button>
           {selectorHref ? (
             <Button variant="outline" asChild>
               <Link href={selectorHref}><ArrowLeftRight /> Cambiar sucursal</Link>
@@ -139,7 +153,16 @@ export async function AppointmentCalendarView({
           ) : null}
         </div>
       </header>
-      <DailyCalendar employees={team} appointments={dailyAppointments} timezone={timezone} />
+      <DailyCalendar
+        employees={team}
+        appointments={dailyAppointments.map((appointment) => ({ ...appointment, startsAt: appointment.startsAt.toISOString(), endsAt: appointment.endsAt.toISOString(), serviceIds: servicesByAppointment.get(appointment.id) ?? [] }))}
+        timezone={timezone}
+        companyId={companyId}
+        branchId={branch.id}
+        canManageAppointments={canManageAppointments}
+        customers={customerRows}
+        services={serviceRows}
+      />
     </div>
   );
 }

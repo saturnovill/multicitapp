@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { and, asc, count, eq } from "drizzle-orm";
-import { CalendarDays } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, ListFilter } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { BranchSelector } from "@/components/branch-selector";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { branches, employeeBranches } from "@/db/schema";
 import { getDb } from "@/db";
 import { getAuthSession } from "@/lib/auth/server";
@@ -53,12 +55,9 @@ export default async function AppointmentsPage({
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <header className="mb-7">
-        <Badge variant="secondary"><CalendarDays /> Citas</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">Selecciona una sucursal</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Elige la ubicación cuyo calendario diario deseas consultar. Podrás cambiarla en cualquier momento.
-        </p>
+      <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><Badge variant="secondary"><CalendarDays /> Citas</Badge><h1 className="mt-3 text-3xl font-semibold tracking-tight">Selecciona una sucursal</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Elige la ubicación cuyo calendario diario deseas consultar. Podrás cambiarla en cualquier momento.</p></div>
+        <Button variant="outline" asChild><Link href="/app/citas/listado"><ListFilter />Ver listado</Link></Button>
       </header>
       <BranchSelector
         branches={branchRows.map((branch) => ({

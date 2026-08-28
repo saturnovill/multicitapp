@@ -54,6 +54,7 @@ export default async function BranchAppointmentsPage({
       basePath={`/app/citas/${branch.id}`}
       selectedDate={typeof query.date === "string" ? query.date : undefined}
       selectorHref={context.role === "manager" ? "/app/citas" : undefined}
+      listHref="/app/citas/listado"
       canManageAppointments={["owner", "admin", "manager", "receptionist"].includes(context.role)}
     />
   );
