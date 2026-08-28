@@ -35,6 +35,8 @@ const statusLabel: Record<string, string> = {
   waiting: "En espera",
   in_service: "En servicio",
   completed: "Completada",
+  cancelled: "Cancelada",
+  no_show: "No asistió",
 };
 
 function minutesInTimezone(date: Date, timezone: string) {

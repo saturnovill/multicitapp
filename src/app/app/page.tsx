@@ -14,5 +14,5 @@ export default async function AppPage() {
   }
 
   const context = await getTenantContext(session.user.id);
-  redirect(context ? "/app/agenda" : "/app/sin-acceso");
+  redirect(context ? "/app/citas" : "/app/sin-acceso");
 }

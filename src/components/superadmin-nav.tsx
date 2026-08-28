@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
+  CalendarDays,
   LayoutDashboard,
   MapPin,
   Menu,
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 
 const navigation = [
   { href: "/app/admin", label: "Resumen", icon: LayoutDashboard },
+  { href: "/app/admin/citas", label: "Citas", icon: CalendarDays },
   { href: "/app/admin/empresas", label: "Empresas", icon: Building2 },
   { href: "/app/admin/usuarios", label: "Usuarios", icon: UsersRound },
   { href: "/app/admin/sucursales", label: "Sucursales", icon: MapPin },

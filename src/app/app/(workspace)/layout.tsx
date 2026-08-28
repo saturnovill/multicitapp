@@ -44,7 +44,9 @@ export default async function WorkspaceLayout({
           <div className="mb-5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3">
             <p className="truncate text-sm font-semibold">{context.companyName}</p>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {context.branch?.name ?? "Sin sucursal"}
+              {context.role === "manager"
+                ? "Todas las sucursales"
+                : context.branch?.name ?? "Sin sucursal"}
             </p>
           </div>
           <AppShellNav />

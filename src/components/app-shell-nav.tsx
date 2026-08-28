@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { href: "/app/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/app/citas", label: "Citas", icon: CalendarDays },
   { href: "/app", label: "Resumen", icon: LayoutDashboard },
   { href: "/app/clientes", label: "Clientes", icon: ContactRound },
   { href: "/app/empleados", label: "Empleados", icon: UsersRound },
@@ -29,7 +29,9 @@ export function AppShellNav() {
   return (
     <nav className="space-y-1" aria-label="Navegación principal">
       {navigation.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href;
+        const active = href === "/app"
+          ? pathname === href
+          : pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
             key={href}
