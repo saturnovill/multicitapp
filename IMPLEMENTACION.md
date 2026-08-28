@@ -19,53 +19,56 @@ Una tarea se considera terminada cuando:
 - [x] Crear aplicación Next.js con App Router, TypeScript, Tailwind y ESLint.
 - [x] Conservar la propuesta funcional dentro del repositorio.
 - [x] Inicializar Git, enlazar `saturnovill/multicitapp` y publicar `main`.
-- [ ] Vincular el repositorio con un proyecto de Vercel.
+- [x] Vincular el directorio local con un proyecto de Vercel.
+- [ ] Conectar GitHub directamente desde Vercel (requiere habilitar la conexión de GitHub en la cuenta de Vercel).
 
 ### T-002 Configurar el sistema visual
 
-- [ ] Inicializar shadcn/ui con Radix.
-- [ ] Instalar componentes base de navegación, formularios, tablas y diálogos.
-- [ ] Definir tokens de color, tipografía, espaciado y estados de citas.
-- [ ] Crear shell adaptable con menú lateral y encabezado.
+- [x] Inicializar shadcn/ui con Radix.
+- [x] Instalar componentes base de navegación, formularios, tablas y diálogos.
+- [x] Definir tokens de color, tipografía, espaciado y estados de citas.
+- [x] Crear shell adaptable con menú lateral y encabezado.
 
 ### T-003 Aprovisionar Neon Postgres
 
-- [ ] Crear Neon desde la integración administrada por Vercel.
-- [ ] Configurar `DATABASE_URL` pooled para la aplicación.
-- [ ] Configurar `DATABASE_URL_UNPOOLED` para migraciones.
-- [ ] Documentar variables sin guardar secretos en Git.
-- [ ] Verificar conexión desde local y Vercel.
+- [x] Crear Neon desde la integración administrada por Vercel.
+- [x] Configurar `DATABASE_URL` pooled para la aplicación.
+- [x] Configurar `DATABASE_URL_UNPOOLED` para migraciones.
+- [x] Documentar variables sin guardar secretos en Git.
+- [x] Verificar conexión desde local y Vercel.
 
 ### T-004 Configurar Drizzle
 
-- [ ] Instalar Drizzle ORM, Drizzle Kit y el driver serverless de Neon.
-- [ ] Crear configuración de migraciones.
-- [ ] Añadir scripts `db:generate`, `db:migrate`, `db:studio` y `db:seed`.
-- [ ] Implementar inicialización diferida para que el build no falle sin variables.
+- [x] Instalar Drizzle ORM, Drizzle Kit y el driver serverless de Neon.
+- [x] Crear configuración de migraciones.
+- [x] Añadir scripts `db:generate`, `db:migrate` y `db:studio`.
+- [ ] Añadir un script `db:seed` independiente del onboarding.
+- [x] Implementar inicialización diferida para que el build no falle sin variables.
 
 ## Entrega 1 — Identidad y multiempresa
 
 ### T-101 Modelo multiempresa
 
-- [ ] Crear tablas de empresas, usuarios, membresías, roles y permisos.
-- [ ] Crear sucursales y asignaciones de usuario a sucursal.
-- [ ] Incorporar `company_id` en toda entidad operativa.
-- [ ] Añadir índices compuestos comenzando por `company_id`.
+- [x] Crear tablas de empresas, usuarios, membresías, roles y permisos.
+- [x] Crear sucursales y asignaciones de usuario a sucursal.
+- [x] Incorporar `company_id` en toda entidad operativa.
+- [x] Añadir índices compuestos comenzando por `company_id`.
 - [ ] Crear datos semilla de desarrollo.
 
 ### T-102 Autenticación
 
-- [ ] Implementar registro por invitación, inicio y cierre de sesión.
+- [x] Implementar registro inicial, inicio y cierre de sesión.
+- [ ] Implementar invitaciones de usuarios a empresas.
 - [ ] Implementar recuperación y cambio de contraseña.
-- [ ] Crear sesión segura en cookie `httpOnly`.
+- [x] Crear sesión segura en cookie `httpOnly` mediante Neon Auth.
 - [ ] Añadir rate limiting a los endpoints de acceso.
-- [ ] Crear pantalla de acceso con validación en servidor.
+- [x] Crear pantallas de registro y acceso conectadas a Neon Auth.
 
 ### T-103 Autorización
 
-- [ ] Crear una capa de acceso a datos que valide sesión y empresa activa.
-- [ ] Definir roles: plataforma, propietario, administrador, gerente, recepción y empleado.
-- [ ] Verificar permisos cerca de cada consulta o mutación.
+- [x] Crear una capa de acceso a datos que valide sesión y empresa activa.
+- [x] Definir roles: plataforma, propietario, administrador, gerente, recepción y empleado.
+- [x] Filtrar las consultas actuales por empresa y sucursal activas.
 - [ ] Implementar selector de empresa y sucursal.
 - [ ] Probar que una empresa no puede leer ni modificar datos de otra.
 
@@ -111,14 +114,15 @@ Una tarea se considera terminada cuando:
 - [ ] Calcular disponibilidad por sucursal, empleado, servicio y fecha.
 - [ ] Considerar horarios, excepciones, bloqueos y duración total.
 - [ ] Validar nuevamente dentro de una transacción al guardar.
-- [ ] Implementar una restricción de base de datos contra traslapes.
+- [x] Implementar una restricción de base de datos contra traslapes.
 - [ ] Añadir pruebas de concurrencia para reservas simultáneas.
 
 ### T-302 Calendario diario por empleado
 
-- [ ] Mostrar un día por pantalla y una columna por empleado.
+- [x] Mostrar un día por pantalla y una columna por empleado.
 - [ ] Intervalos configurables de 15 minutos como valor inicial.
-- [ ] Navegación de fecha, filtro de sucursal y desplazamiento horizontal.
+- [x] Navegación de fecha y desplazamiento horizontal.
+- [ ] Añadir selector de sucursal.
 - [ ] Mostrar horarios no disponibles e indicador de hora actual.
 - [ ] Adaptar la vista para computadora, tableta y consulta móvil.
 
