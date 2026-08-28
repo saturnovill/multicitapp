@@ -19,6 +19,8 @@ La fundación técnica y el primer recorrido de identidad están implementados:
 - Panel exclusivo de superadministración para crear empresas y usuarios.
 - Esquema multiempresa de 16 tablas con claves compuestas de aislamiento.
 - Agenda diaria con una columna por empleado y navegación por fecha.
+- Selector de sucursal para superadministradores y gerentes.
+- Catálogo básico de servicios y alta de citas con cliente nuevo o existente.
 - Restricción PostgreSQL que impide citas solapadas para un empleado.
 
 Las cuentas no se crean desde el login. El superadministrador registra cada

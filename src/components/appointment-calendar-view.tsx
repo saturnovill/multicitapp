@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { and, asc, eq, sql } from "drizzle-orm";
-import { ArrowLeftRight, ChevronLeft, ChevronRight, MapPin, Plus } from "lucide-react";
+import { ArrowLeftRight, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 
 import { DailyCalendar } from "@/components/daily-calendar";
+import { NewAppointmentDialog } from "@/components/new-appointment-dialog";
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/db";
-import { appointments, customers, employeeBranches, employees } from "@/db/schema";
+import { appointments, customers, employeeBranches, employees, services } from "@/db/schema";
 
 type AppointmentCalendarViewProps = {
   companyId: string;
@@ -14,6 +15,7 @@ type AppointmentCalendarViewProps = {
   basePath: string;
   selectedDate?: string;
   selectorHref?: string;
+  canManageAppointments: boolean;
 };
 
 function validDate(value: string | undefined) {
@@ -36,6 +38,7 @@ export async function AppointmentCalendarView({
   basePath,
   selectedDate,
   selectorHref,
+  canManageAppointments,
 }: AppointmentCalendarViewProps) {
   const timezone = branch.timezone ?? companyTimezone;
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -47,7 +50,7 @@ export async function AppointmentCalendarView({
   const date = validDate(selectedDate) ?? today;
   const db = getDb();
 
-  const [team, dailyAppointments] = await Promise.all([
+  const [team, dailyAppointments, customerRows, serviceRows] = await Promise.all([
     db
       .select({ id: employees.id, name: employees.name, color: employees.color })
       .from(employees)
@@ -89,6 +92,12 @@ export async function AppointmentCalendarView({
         ),
       )
       .orderBy(asc(appointments.startsAt)),
+    canManageAppointments
+      ? db.select({ id: customers.id, name: customers.name, phone: customers.phone }).from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name)).limit(500)
+      : Promise.resolve([]),
+    canManageAppointments
+      ? db.select({ id: services.id, name: services.name, durationMinutes: services.durationMinutes, priceCents: services.priceCents, currency: services.currency }).from(services).where(and(eq(services.companyId, companyId), eq(services.status, "active"))).orderBy(asc(services.name))
+      : Promise.resolve([]),
   ]);
 
   const label = new Intl.DateTimeFormat("es-MX", {
@@ -125,9 +134,9 @@ export async function AppointmentCalendarView({
               <Link href={`${basePath}?date=${shiftDate(date, 1)}`}><ChevronRight /></Link>
             </Button>
           </div>
-          <Button className="bg-violet-600 hover:bg-violet-700" disabled>
-            <Plus aria-hidden="true" /> Nueva cita
-          </Button>
+          {canManageAppointments ? (
+            <NewAppointmentDialog companyId={companyId} branchId={branch.id} date={date} employees={team} customers={customerRows} services={serviceRows} />
+          ) : null}
         </div>
       </header>
       <DailyCalendar employees={team} appointments={dailyAppointments} timezone={timezone} />

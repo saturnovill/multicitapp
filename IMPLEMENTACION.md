@@ -72,14 +72,14 @@ Una tarea se considera terminada cuando:
 - [x] Definir roles: plataforma, propietario, administrador, gerente, recepción y empleado.
 - [x] Filtrar las consultas actuales por empresa y sucursal activas.
 - [x] Crear panel exclusivo para altas de empresas y usuarios.
-- [ ] Implementar selector de empresa y sucursal.
+- [x] Implementar selector de empresa y sucursal para superadministración y gerencia.
 - [ ] Probar que una empresa no puede leer ni modificar datos de otra.
 
 ### T-104 Auditoría
 
 - [ ] Registrar accesos y cambios sensibles.
 - [ ] Guardar actor, empresa, acción, entidad, fecha y metadatos seguros.
-- [ ] Crear consulta administrativa de auditoría.
+- [x] Crear consulta administrativa de auditoría.
 
 ## Entrega 2 — Catálogos operativos
 
@@ -106,7 +106,7 @@ Una tarea se considera terminada cuando:
 
 ### T-204 Categorías y servicios
 
-- [ ] CRUD de categorías y servicios.
+- [ ] Completar CRUD de categorías y servicios (alta y consulta de servicios implementadas).
 - [ ] Precio, duración, impuestos y disponibilidad por sucursal.
 - [ ] Asignación de servicios que puede realizar cada empleado.
 - [ ] Tiempos opcionales de preparación y limpieza.
@@ -126,13 +126,13 @@ Una tarea se considera terminada cuando:
 - [x] Mostrar un día por pantalla y una columna por empleado.
 - [ ] Intervalos configurables de 15 minutos como valor inicial.
 - [x] Navegación de fecha y desplazamiento horizontal.
-- [ ] Añadir selector de sucursal.
+- [x] Añadir selector de sucursal.
 - [ ] Mostrar horarios no disponibles e indicador de hora actual.
 - [ ] Adaptar la vista para computadora, tableta y consulta móvil.
 
 ### T-303 Operaciones de citas
 
-- [ ] Crear citas al seleccionar o arrastrar un intervalo.
+- [ ] Crear citas al seleccionar o arrastrar un intervalo (alta mediante formulario implementada).
 - [ ] Editar cliente, servicios, empleado, fecha, hora, notas y estado.
 - [ ] Mover y redimensionar mediante arrastrar y soltar.
 - [ ] Crear descansos, bloqueos, ausencias y eventos personalizados.
