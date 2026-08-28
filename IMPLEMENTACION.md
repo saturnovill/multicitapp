@@ -18,7 +18,7 @@ Una tarea se considera terminada cuando:
 
 - [x] Crear aplicación Next.js con App Router, TypeScript, Tailwind y ESLint.
 - [x] Conservar la propuesta funcional dentro del repositorio.
-- [ ] Inicializar Git, enlazar `saturnovill/multicitapp` y publicar `main`.
+- [x] Inicializar Git, enlazar `saturnovill/multicitapp` y publicar `main`.
 - [ ] Vincular el repositorio con un proyecto de Vercel.
 
 ### T-002 Configurar el sistema visual
@@ -219,4 +219,3 @@ El primer incremento que se implementará después de la fundación será:
 5. Visualización de esa cita en el calendario diario.
 
 Este recorrido validará temprano el aislamiento multiempresa, los permisos, el modelo de horarios y la arquitectura del calendario antes de ampliar el resto de módulos.
-
