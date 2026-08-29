@@ -18,6 +18,7 @@ import {
   services,
 } from "@/db/schema";
 import { canManageAppointments, requireCompanyOperator } from "@/lib/company-operator";
+import { checkAppointmentAvailability } from "@/lib/appointment-availability";
 
 export type AppointmentActionState = {
   status: "idle" | "success" | "error";
@@ -150,6 +151,8 @@ export async function createAppointmentAction(
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
     const estimatedTotalCents = serviceRows.reduce((total, service) => total + service.priceCents, 0);
     const appointmentId = randomUUID();
+    const unavailableReason = await checkAppointmentAvailability({ companyId: parsed.data.companyId, branchId: parsed.data.branchId, employeeId: parsed.data.employeeId, date: parsed.data.date, time: parsed.data.time, startsAt, endsAt, serviceIds: parsed.data.serviceIds });
+    if (unavailableReason) return { status: "error", message: unavailableReason };
 
     const queries = [
       ...(!parsed.data.customerId
@@ -240,6 +243,8 @@ export async function updateAppointmentAction(
     const startsAt = zonedDateTimeToUtc(parsed.data.date, parsed.data.time, branch[0].timezone ?? branch[0].companyTimezone);
     const endsAt = new Date(startsAt.getTime() + serviceRows.reduce((sum, row) => sum + row.durationMinutes, 0) * 60_000);
     const estimatedTotalCents = serviceRows.reduce((sum, row) => sum + row.priceCents, 0);
+    const unavailableReason = await checkAppointmentAvailability({ companyId: parsed.data.companyId, branchId: parsed.data.branchId, employeeId: parsed.data.employeeId, date: parsed.data.date, time: parsed.data.time, startsAt, endsAt, serviceIds: parsed.data.serviceIds });
+    if (unavailableReason) return { status: "error", message: unavailableReason };
     const queries = [
       db.update(appointments).set({ customerId: parsed.data.customerId, employeeId: parsed.data.employeeId, startsAt, endsAt, status: parsed.data.status, notes: parsed.data.notes || null, estimatedTotalCents, updatedAt: new Date() }).where(and(eq(appointments.id, parsed.data.appointmentId), eq(appointments.companyId, parsed.data.companyId), eq(appointments.branchId, parsed.data.branchId))),
       db.delete(appointmentServices).where(and(eq(appointmentServices.appointmentId, parsed.data.appointmentId), eq(appointmentServices.companyId, parsed.data.companyId))),
