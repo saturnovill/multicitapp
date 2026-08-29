@@ -1,0 +1,47 @@
+"use server";
+
+import { randomUUID } from "node:crypto";
+import { and, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import { getDb } from "@/db";
+import { auditLogs, branches, weeklySchedules } from "@/db/schema";
+import { canManageCatalogs, requireCompanyOperator } from "@/lib/company-operator";
+
+export type BranchActionState = { status: "idle" | "success" | "error"; message?: string };
+const branchSchema = z.object({ branchId: z.union([z.uuid(), z.literal("")]), companyId: z.uuid(), name: z.string().trim().min(2).max(160), timezone: z.string().trim().min(3).max(80), address: z.string().trim().max(1000), phone: z.string().trim().max(32), email: z.union([z.email(), z.literal("")]), status: z.enum(["active", "inactive"]) });
+const scheduleSchema = z.object({ companyId: z.uuid(), branchId: z.uuid(), days: z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), enabled: z.boolean(), startMinute: z.number().int().min(0).max(1439), endMinute: z.number().int().min(1).max(1440) })).length(7) });
+
+export async function saveBranchAction(_state: BranchActionState, formData: FormData): Promise<BranchActionState> {
+  try {
+    const parsed = branchSchema.safeParse({ branchId: formData.get("branchId") ?? "", companyId: formData.get("companyId"), name: formData.get("name"), timezone: formData.get("timezone"), address: formData.get("address") ?? "", phone: formData.get("phone") ?? "", email: formData.get("email") ?? "", status: formData.get("status") ?? "active" });
+    if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Revisa los datos de la sucursal" };
+    try { new Intl.DateTimeFormat("es-MX", { timeZone: parsed.data.timezone }).format(); } catch { return { status: "error", message: "La zona horaria no es válida" }; }
+    const operator = await requireCompanyOperator(parsed.data.companyId);
+    if (!canManageCatalogs(operator)) return { status: "error", message: "No tienes permiso para administrar sucursales" };
+    const db = getDb(); const branchId = parsed.data.branchId || randomUUID();
+    if (parsed.data.branchId) { const [existing] = await db.select({ id: branches.id }).from(branches).where(and(eq(branches.id, branchId), eq(branches.companyId, parsed.data.companyId))).limit(1); if (!existing) return { status: "error", message: "La sucursal no existe" }; }
+    await db.batch([
+      parsed.data.branchId ? db.update(branches).set({ name: parsed.data.name, timezone: parsed.data.timezone, address: parsed.data.address || null, phone: parsed.data.phone || null, email: parsed.data.email || null, status: parsed.data.status, updatedAt: new Date() }).where(and(eq(branches.id, branchId), eq(branches.companyId, parsed.data.companyId))) : db.insert(branches).values({ id: branchId, companyId: parsed.data.companyId, name: parsed.data.name, slug: `${slug(parsed.data.name)}-${branchId.slice(0, 6)}`, timezone: parsed.data.timezone, address: parsed.data.address || null, phone: parsed.data.phone || null, email: parsed.data.email || null, status: parsed.data.status }),
+      db.insert(auditLogs).values({ companyId: parsed.data.companyId, actorUserId: operator.appUserId, action: parsed.data.branchId ? "branch.updated" : "branch.created", entityType: "branch", entityId: branchId, metadata: { name: parsed.data.name, status: parsed.data.status } }),
+    ]);
+    revalidateBranchRoutes(branchId); return { status: "success", message: parsed.data.branchId ? "Sucursal actualizada" : "Sucursal creada" };
+  } catch (error) { console.error("[branches:save] failed", { error: String(error) }); return { status: "error", message: "No fue posible guardar la sucursal" }; }
+}
+
+export async function saveBranchScheduleAction(_state: BranchActionState, formData: FormData): Promise<BranchActionState> {
+  try {
+    const days = Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, enabled: formData.get(`enabled-${dayOfWeek}`) === "on", startMinute: timeToMinute(String(formData.get(`start-${dayOfWeek}`) ?? "09:00")), endMinute: timeToMinute(String(formData.get(`end-${dayOfWeek}`) ?? "18:00")) }));
+    const parsed = scheduleSchema.safeParse({ companyId: formData.get("companyId"), branchId: formData.get("branchId"), days });
+    if (!parsed.success || parsed.data.days.some((day) => day.enabled && day.startMinute >= day.endMinute)) return { status: "error", message: "Revisa los horarios capturados" };
+    const operator = await requireCompanyOperator(parsed.data.companyId); if (!canManageCatalogs(operator)) return { status: "error", message: "No tienes permiso para administrar horarios" };
+    const db = getDb(); const [branch] = await db.select({ id: branches.id }).from(branches).where(and(eq(branches.id, parsed.data.branchId), eq(branches.companyId, parsed.data.companyId))).limit(1); if (!branch) return { status: "error", message: "La sucursal no existe" };
+    const enabled = parsed.data.days.filter((day) => day.enabled); const queries = [db.delete(weeklySchedules).where(and(eq(weeklySchedules.companyId, parsed.data.companyId), eq(weeklySchedules.branchId, parsed.data.branchId), eq(weeklySchedules.scope, "branch"))), ...enabled.map((day) => db.insert(weeklySchedules).values({ companyId: parsed.data.companyId, branchId: parsed.data.branchId, employeeId: null, scope: "branch", dayOfWeek: day.dayOfWeek, startMinute: day.startMinute, endMinute: day.endMinute })), db.insert(auditLogs).values({ companyId: parsed.data.companyId, actorUserId: operator.appUserId, action: "branch.schedule.updated", entityType: "branch", entityId: parsed.data.branchId, metadata: { activeDays: enabled.map((day) => day.dayOfWeek) } })];
+    await db.batch(queries as [typeof queries[number], ...typeof queries]); revalidateBranchRoutes(parsed.data.branchId); return { status: "success", message: "Horario general actualizado" };
+  } catch (error) { console.error("[branches:schedule] failed", { error: String(error) }); return { status: "error", message: "No fue posible guardar el horario" }; }
+}
+
+function timeToMinute(value: string) { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return -1; const [hour, minute] = value.split(":").map(Number); return hour * 60 + minute; }
+function slug(value: string) { return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 72) || "sucursal"; }
+function revalidateBranchRoutes(branchId: string) { revalidatePath("/app/sucursales"); revalidatePath(`/app/sucursales/${branchId}`); revalidatePath("/app/admin/sucursales"); revalidatePath(`/app/admin/sucursales/${branchId}`); revalidatePath("/app/citas", "layout"); revalidatePath("/app/admin/citas", "layout"); }

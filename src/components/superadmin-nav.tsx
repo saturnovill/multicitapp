@@ -13,6 +13,7 @@ import {
   ScrollText,
   ShieldCheck,
   UsersRound,
+  ContactRound,
 } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
@@ -31,6 +32,7 @@ const navigation = [
   { href: "/app/admin/citas", label: "Citas", icon: CalendarDays },
   { href: "/app/admin/servicios", label: "Servicios", icon: BriefcaseBusiness },
   { href: "/app/admin/empleados", label: "Empleados", icon: UsersRound },
+  { href: "/app/admin/clientes", label: "Clientes", icon: ContactRound },
   { href: "/app/admin/empresas", label: "Empresas", icon: Building2 },
   { href: "/app/admin/usuarios", label: "Usuarios", icon: UsersRound },
   { href: "/app/admin/sucursales", label: "Sucursales", icon: MapPin },
