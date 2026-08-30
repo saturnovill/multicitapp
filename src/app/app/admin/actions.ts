@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -46,6 +46,8 @@ const passwordSchema = z
     message: "Las contraseñas no coinciden",
     path: ["confirmation"],
   });
+const accessSchema = z.object({ appUserId: z.uuid(), membershipId: z.uuid(), role: z.enum(["owner", "admin", "manager", "receptionist", "employee"]), status: z.enum(["active", "suspended"]) });
+const resetPasswordSchema = z.object({ appUserId: z.uuid(), password: z.string().min(12).max(128) });
 
 function toSlug(value: string) {
   return value
@@ -243,4 +245,40 @@ export async function changeAdminPasswordAction(
     console.error("[admin:change-password] failed", { error: String(error) });
     return invalid("No fue posible cambiar la contraseña");
   }
+}
+
+export async function updateUserAccessAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  try {
+    const admin = await requirePlatformAdmin();
+    const parsed = accessSchema.safeParse({ appUserId: formData.get("appUserId"), membershipId: formData.get("membershipId"), role: formData.get("role"), status: formData.get("status") });
+    if (!parsed.success) return invalid("Revisa el rol y estado seleccionados");
+    if (parsed.data.appUserId === admin.appUser.id) return invalid("No puedes modificar tu propio acceso de superadministrador");
+    const db = getDb();
+    const [membership] = await db.select({ id: companyMemberships.id, companyId: companyMemberships.companyId }).from(companyMemberships).where(and(eq(companyMemberships.id, parsed.data.membershipId), eq(companyMemberships.userId, parsed.data.appUserId))).limit(1);
+    if (!membership) return invalid("La asignación ya no existe");
+    await db.batch([
+      db.update(companyMemberships).set({ role: parsed.data.role, status: parsed.data.status, updatedAt: new Date() }).where(eq(companyMemberships.id, membership.id)),
+      db.update(appUsers).set({ isActive: parsed.data.status === "active", updatedAt: new Date() }).where(eq(appUsers.id, parsed.data.appUserId)),
+      db.insert(auditLogs).values({ companyId: membership.companyId, actorUserId: admin.appUser.id, action: "platform.user.access_updated", entityType: "app_user", entityId: parsed.data.appUserId, metadata: { role: parsed.data.role, status: parsed.data.status } }),
+    ]);
+    revalidatePath("/app/admin/usuarios");
+    return { status: "success", message: "Acceso actualizado" };
+  } catch (error) { console.error("[admin:update-user-access] failed", { error: String(error) }); return invalid("No fue posible actualizar el acceso"); }
+}
+
+export async function resetUserPasswordAction(_state: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  try {
+    const admin = await requirePlatformAdmin();
+    const parsed = resetPasswordSchema.safeParse({ appUserId: formData.get("appUserId"), password: formData.get("password") });
+    if (!parsed.success) return invalid("La contraseña debe tener al menos 12 caracteres");
+    if (parsed.data.appUserId === admin.appUser.id) return invalid("Cambia tu contraseña desde la sección Seguridad");
+    const db = getDb();
+    const [target] = await db.select({ authUserId: appUsers.authUserId }).from(appUsers).where(eq(appUsers.id, parsed.data.appUserId)).limit(1);
+    if (!target) return invalid("El usuario ya no existe");
+    const result = await auth.admin.setUserPassword({ userId: target.authUserId, newPassword: parsed.data.password });
+    if (result.error) return invalid(result.error.message);
+    const [membership] = await db.select({ companyId: companyMemberships.companyId }).from(companyMemberships).where(eq(companyMemberships.userId, parsed.data.appUserId)).limit(1);
+    if (membership) await db.insert(auditLogs).values({ companyId: membership.companyId, actorUserId: admin.appUser.id, action: "platform.user.password_reset", entityType: "app_user", entityId: parsed.data.appUserId, metadata: { source: "platform_admin" } });
+    return { status: "success", message: "Contraseña restablecida" };
+  } catch (error) { console.error("[admin:reset-user-password] failed", { error: String(error) }); return invalid("No fue posible restablecer la contraseña"); }
 }

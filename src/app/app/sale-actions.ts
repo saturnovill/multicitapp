@@ -21,9 +21,9 @@ import {
   saleItems,
   salePayments,
   sales,
-  services,
 } from "@/db/schema";
 import { canManageSales, requireCompanyOperator } from "@/lib/company-operator";
+import { getEffectiveServices } from "@/lib/service-availability";
 
 export type SaleActionState = {
   status: "idle" | "success" | "error";
@@ -51,7 +51,6 @@ const createSchema = z.object({
   customerId: z.union([z.uuid(), z.literal("")]),
   appointmentId: z.union([z.uuid(), z.literal("")]),
   discountPercent: z.number().min(0).max(100),
-  taxPercent: z.number().min(0).max(100),
   notes: z.string().trim().max(2000),
   items: z.array(lineSchema).min(1).max(100),
   payments: z.array(paymentSchema).min(1).max(3),
@@ -82,7 +81,6 @@ export async function createSaleAction(
       customerId: formData.get("customerId") ?? "",
       appointmentId: formData.get("appointmentId") ?? "",
       discountPercent: Number(formData.get("discountPercent") ?? 0),
-      taxPercent: Number(formData.get("taxPercent") ?? 0),
       notes: formData.get("notes") ?? "",
       items: jsonValue(formData, "items"),
       payments: jsonValue(formData, "payments"),
@@ -100,7 +98,7 @@ export async function createSaleAction(
     const [companyRows, branchRows, serviceRows, employeeRows, customerRows, appointmentRows, cashSessionRows] = await Promise.all([
       db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, parsed.data.companyId)).limit(1),
       db.select({ id: branches.id }).from(branches).where(and(eq(branches.companyId, parsed.data.companyId), eq(branches.id, parsed.data.branchId), eq(branches.status, "active"))).limit(1),
-      db.select({ id: services.id, code: services.code, name: services.name, priceCents: services.priceCents }).from(services).where(and(eq(services.companyId, parsed.data.companyId), eq(services.status, "active"), inArray(services.id, serviceIds))),
+      getEffectiveServices(parsed.data.companyId, parsed.data.branchId, serviceIds),
       db.select({ id: employees.id, name: employees.name }).from(employees).innerJoin(employeeBranches, and(eq(employeeBranches.companyId, parsed.data.companyId), eq(employeeBranches.employeeId, employees.id))).where(and(eq(employees.companyId, parsed.data.companyId), eq(employees.status, "active"), eq(employeeBranches.branchId, parsed.data.branchId), inArray(employees.id, employeeIds))),
       parsed.data.customerId ? db.select({ id: customers.id }).from(customers).where(and(eq(customers.companyId, parsed.data.companyId), eq(customers.id, parsed.data.customerId))).limit(1) : Promise.resolve([]),
       parsed.data.appointmentId ? db.select({ id: appointments.id, branchId: appointments.branchId, customerId: appointments.customerId, status: appointments.status }).from(appointments).where(and(eq(appointments.companyId, parsed.data.companyId), eq(appointments.id, parsed.data.appointmentId))).limit(1) : Promise.resolve([]),
@@ -133,7 +131,10 @@ export async function createSaleAction(
     const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
     const discountCents = Math.round(subtotalCents * parsed.data.discountPercent / 100);
     const taxableCents = subtotalCents - discountCents;
-    const taxCents = Math.round(taxableCents * parsed.data.taxPercent / 100);
+    const taxCents = lines.reduce((sum, line) => {
+      const discountedLine = line.lineTotalCents * (1 - parsed.data.discountPercent / 100);
+      return sum + Math.round(discountedLine * line.service.taxBasisPoints / 10_000);
+    }, 0);
     const totalCents = taxableCents + taxCents;
     const paidCents = parsed.data.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
     if (paidCents < totalCents) return { status: "error", message: "El pago no cubre el total de la venta" };
@@ -158,7 +159,7 @@ export async function createSaleAction(
     const customerId = parsed.data.customerId || appointment?.customerId || null;
     const queries = [
       db.insert(sales).values({ id: saleId, companyId: parsed.data.companyId, branchId: parsed.data.branchId, customerId, appointmentId: parsed.data.appointmentId || null, cashSessionId: cashSession.id, createdByUserId: operator.appUserId, folio, subtotalCents, discountCents, taxCents, totalCents, paidCents, changeCents: paidCents - totalCents, currency: companyRows[0].currency, notes: parsed.data.notes || null }),
-      ...lines.map((line) => db.insert(saleItems).values({ companyId: parsed.data.companyId, saleId, serviceId: line.service.id, employeeId: line.employee.id, serviceCode: line.service.code, serviceName: line.service.name, employeeName: line.employee.name, quantity: line.quantity, unitPriceCents: line.service.priceCents, lineTotalCents: line.lineTotalCents })),
+      ...lines.map((line) => db.insert(saleItems).values({ companyId: parsed.data.companyId, saleId, serviceId: line.service.id, employeeId: line.employee.id, serviceCode: line.service.code ?? "SERVICIO", serviceName: line.service.name, employeeName: line.employee.name, quantity: line.quantity, unitPriceCents: line.service.priceCents, lineTotalCents: line.lineTotalCents })),
       ...parsed.data.payments.map((payment) => db.insert(salePayments).values({ companyId: parsed.data.companyId, saleId, method: payment.method, giftCardId: payment.method === "giftcard" ? payment.giftCardId : null, amountCents: payment.amountCents, reference: payment.reference || null })),
       ...parsed.data.payments.map((payment) => db.insert(cashMovements).values({ companyId: parsed.data.companyId, sessionId: cashSession.id, saleId, actorUserId: operator.appUserId, type: "sale", method: payment.method, amountCents: payment.amountCents, category: "Venta", reason: folio })),
       ...giftCardRows.flatMap((card) => {

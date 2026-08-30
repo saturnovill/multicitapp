@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { CalendarPlus, LoaderCircle, Plus } from "lucide-react";
 
@@ -34,6 +34,12 @@ export function NewAppointmentDialog({
   employees,
   customers,
   services,
+  defaultEmployeeId = "",
+  defaultTime = "09:00",
+  intervalMinutes = 15,
+  controlledOpen,
+  onControlledOpenChange,
+  trigger,
 }: {
   companyId: string;
   branchId: string;
@@ -41,8 +47,16 @@ export function NewAppointmentDialog({
   employees: EmployeeOption[];
   customers: CustomerOption[];
   services: ServiceOption[];
+  defaultEmployeeId?: string;
+  defaultTime?: string;
+  intervalMinutes?: number;
+  controlledOpen?: boolean;
+  onControlledOpenChange?: (open: boolean) => void;
+  trigger?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onControlledOpenChange ?? setInternalOpen;
   const [state, action] = useActionState(createAppointmentAction, initialState);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
@@ -67,9 +81,7 @@ export function NewAppointmentDialog({
         if (!nextOpen) setSelectedServices([]);
       }}
     >
-      <DialogTrigger asChild>
-        <Button className="bg-violet-600 hover:bg-violet-700"><Plus /> Nueva cita</Button>
-      </DialogTrigger>
+      {controlledOpen === undefined ? <DialogTrigger asChild>{trigger ?? <Button className="bg-violet-600 hover:bg-violet-700"><Plus /> Nueva cita</Button>}</DialogTrigger> : null}
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Registrar cita</DialogTitle>
@@ -82,7 +94,7 @@ export function NewAppointmentDialog({
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="appointmentEmployee">Empleado</Label>
-              <select id="appointmentEmployee" name="employeeId" required defaultValue="" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <select id="appointmentEmployee" name="employeeId" required defaultValue={defaultEmployeeId} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
                 <option value="" disabled>Seleccionar</option>
                 {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
               </select>
@@ -92,7 +104,7 @@ export function NewAppointmentDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="appointmentDate">Fecha</Label><Input id="appointmentDate" name="date" type="date" defaultValue={date} required /></div>
-            <div className="space-y-2"><Label htmlFor="appointmentTime">Hora de inicio</Label><Input id="appointmentTime" name="time" type="time" min="08:00" max="20:00" step={900} defaultValue="09:00" required /></div>
+            <div className="space-y-2"><Label htmlFor="appointmentTime">Hora de inicio</Label><Input id="appointmentTime" name="time" type="time" min="08:00" max="20:00" step={intervalMinutes * 60} defaultValue={defaultTime} required /></div>
           </div>
 
           <fieldset className="space-y-3">

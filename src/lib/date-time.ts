@@ -1,5 +1,3 @@
-import "server-only";
-
 export function zonedDateTimeToUtc(date: string, time: string, timezone: string) {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute] = time.split(":").map(Number);

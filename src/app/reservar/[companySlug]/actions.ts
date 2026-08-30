@@ -62,7 +62,7 @@ export async function createPublicAppointmentAction(_state: PublicBookingActionS
     if (!catalog) return { status: "error", message: "La empresa no está disponible" };
     const branch = catalog.branches.find((item) => item.id === parsed.data.branchId);
     const employee = catalog.employees.find((item) => item.id === parsed.data.employeeId && item.branchId === parsed.data.branchId);
-    const selectedServices = catalog.services.filter((service) => parsed.data.serviceIds.includes(service.id));
+    const selectedServices = catalog.services.filter((service) => parsed.data.serviceIds.includes(service.id) && service.branchIds.includes(parsed.data.branchId)).map((service) => ({ ...service, priceCents: service.branchPrices.find((price) => price.branchId === parsed.data.branchId)?.priceCents ?? service.priceCents }));
     if (!branch || !employee || selectedServices.length !== parsed.data.serviceIds.length) return { status: "error", message: "La sucursal, el personal o los servicios ya no están disponibles" };
 
     const availability = await getPublicBookingAvailability({ companySlug: parsed.data.companySlug, branchId: parsed.data.branchId, employeeId: parsed.data.employeeId, serviceIds: parsed.data.serviceIds, date: parsed.data.date });

@@ -13,6 +13,8 @@ export type PublicBookingService = {
   priceCents: number;
   currency: string;
   categoryName: string | null;
+  branchIds: string[];
+  branchPrices: { branchId: string; priceCents: number }[];
 };
 
 export type PublicBookingEmployee = {
@@ -30,6 +32,8 @@ export type PublicBookingCatalog = {
     slug: string;
     timezone: string;
     currency: string;
+    appointmentIntervalMinutes: number;
+    bookingLeadMinutes: number;
   };
   branches: PublicBookingBranch[];
   services: PublicBookingService[];

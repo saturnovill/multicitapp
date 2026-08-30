@@ -15,7 +15,7 @@ type Setup = {
   company: { id: string; name: string; currency: string };
   branches: { id: string; name: string }[];
   customers: { id: string; name: string; phone: string | null }[];
-  services: { id: string; code: string; name: string; priceCents: number }[];
+  services: { id: string; code: string | null; name: string; priceCents: number; taxBasisPoints: number; branchIds: string[]; branchPrices: Record<string, number> }[];
   employees: { id: string; name: string; branchId: string }[];
   appointments: { id: string; branchId: string; customerId: string; employeeId: string; startsAt: Date; status: string; customerName: string }[];
   appointmentServices: { appointmentId: string; serviceId: string }[];
@@ -39,12 +39,18 @@ export function SaleForm({ setup, initialAppointmentId = "" }: { setup: Setup; i
   const [lines, setLines] = useState<Line[]>(() => initialServices.length ? initialServices.map((row) => ({ key: crypto.randomUUID(), serviceId: row.serviceId, employeeId: initialAppointment!.employeeId, quantity: 1 })) : [{ key: crypto.randomUUID(), serviceId: setup.services[0]?.id ?? "", employeeId: "", quantity: 1 }]);
   const [payments, setPayments] = useState<Payment[]>([{ method: "cash", amount: "", reference: "", giftCardId: "" }]);
   const [discountPercent, setDiscountPercent] = useState(0);
-  const [taxPercent, setTaxPercent] = useState(0);
 
   const employees = setup.employees.filter((employee) => employee.branchId === branchId);
-  const subtotal = useMemo(() => lines.reduce((sum, line) => sum + (setup.services.find((service) => service.id === line.serviceId)?.priceCents ?? 0) * line.quantity, 0), [lines, setup.services]);
+  const servicesForBranch = useMemo(() => setup.services
+    .filter((service) => service.branchIds.includes(branchId))
+    .map((service) => ({ ...service, priceCents: service.branchPrices[branchId] ?? service.priceCents })), [branchId, setup.services]);
+  const subtotal = useMemo(() => lines.reduce((sum, line) => sum + (servicesForBranch.find((service) => service.id === line.serviceId)?.priceCents ?? 0) * line.quantity, 0), [lines, servicesForBranch]);
   const discount = Math.round(subtotal * discountPercent / 100);
-  const tax = Math.round((subtotal - discount) * taxPercent / 100);
+  const tax = lines.reduce((sum, line) => {
+    const service = servicesForBranch.find((row) => row.id === line.serviceId);
+    const discountedLine = (service?.priceCents ?? 0) * line.quantity * (1 - discountPercent / 100);
+    return sum + Math.round(discountedLine * (service?.taxBasisPoints ?? 0) / 10_000);
+  }, 0);
   const total = subtotal - discount + tax;
   const paid = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(Number(payment.amount || 0) * 100)), 0);
   const hasOpenCashSession = setup.cashSessions.some((session) => session.branchId === branchId);
@@ -62,7 +68,12 @@ export function SaleForm({ setup, initialAppointmentId = "" }: { setup: Setup; i
   function changeBranch(id: string) {
     setBranchId(id);
     setAppointmentId("");
-    setLines((current) => current.map((line) => ({ ...line, employeeId: "" })));
+    const allowed = setup.services.filter((service) => service.branchIds.includes(id));
+    setLines((current) => current.map((line) => ({
+      ...line,
+      serviceId: allowed.some((service) => service.id === line.serviceId) ? line.serviceId : (allowed[0]?.id ?? ""),
+      employeeId: "",
+    })));
   }
 
   if (state.status === "success" && state.saleId) {
@@ -84,19 +95,19 @@ export function SaleForm({ setup, initialAppointmentId = "" }: { setup: Setup; i
 
         <Card><CardHeader><CardTitle>Servicios</CardTitle><CardDescription>Asigna el empleado responsable en cada partida.</CardDescription></CardHeader><CardContent className="space-y-4">
           {lines.map((line, index) => <div key={line.key} className="grid gap-3 rounded-xl border bg-stone-50/60 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_40px]">
-            <div className="space-y-2"><Label>Servicio</Label><select required value={line.serviceId} onChange={(event) => setLines((current) => current.map((row) => row.key === line.key ? { ...row, serviceId: event.target.value } : row))} className="h-9 w-full rounded-lg border border-input bg-white px-3 text-sm"><option value="">Selecciona</option>{setup.services.map((service) => <option key={service.id} value={service.id}>{service.name} · {money(service.priceCents, setup.company.currency)}</option>)}</select></div>
+            <div className="space-y-2"><Label>Servicio</Label><select required value={line.serviceId} onChange={(event) => setLines((current) => current.map((row) => row.key === line.key ? { ...row, serviceId: event.target.value } : row))} className="h-9 w-full rounded-lg border border-input bg-white px-3 text-sm"><option value="">Selecciona</option>{servicesForBranch.map((service) => <option key={service.id} value={service.id}>{service.name} · {money(service.priceCents, setup.company.currency)}</option>)}</select></div>
             <div className="space-y-2"><Label>Empleado</Label><select required value={line.employeeId} onChange={(event) => setLines((current) => current.map((row) => row.key === line.key ? { ...row, employeeId: event.target.value } : row))} className="h-9 w-full rounded-lg border border-input bg-white px-3 text-sm"><option value="">Selecciona</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></div>
             <div className="space-y-2"><Label>Cantidad</Label><div className="flex items-center"><Button type="button" variant="outline" size="icon" onClick={() => setLines((current) => current.map((row) => row.key === line.key ? { ...row, quantity: Math.max(1, row.quantity - 1) } : row))} aria-label="Restar"><Minus /></Button><span className="w-10 text-center font-medium">{line.quantity}</span><Button type="button" variant="outline" size="icon" onClick={() => setLines((current) => current.map((row) => row.key === line.key ? { ...row, quantity: Math.min(99, row.quantity + 1) } : row))} aria-label="Sumar"><Plus /></Button></div></div>
             <div className="flex items-end"><Button type="button" variant="ghost" size="icon" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((row) => row.key !== line.key))} aria-label={`Eliminar partida ${index + 1}`}><Trash2 /></Button></div>
           </div>)}
-          <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, { key: crypto.randomUUID(), serviceId: setup.services[0]?.id ?? "", employeeId: "", quantity: 1 }])}><Plus />Agregar servicio</Button>
+          <Button type="button" variant="outline" disabled={!servicesForBranch.length} onClick={() => setLines((current) => [...current, { key: crypto.randomUUID(), serviceId: servicesForBranch[0]?.id ?? "", employeeId: "", quantity: 1 }])}><Plus />Agregar servicio</Button>
         </CardContent></Card>
 
         <Card><CardHeader><CardTitle>Notas</CardTitle></CardHeader><CardContent><Textarea name="notes" placeholder="Observaciones internas de la venta" maxLength={2000} /></CardContent></Card>
       </div>
 
       <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-        <Card><CardHeader><CardTitle>Totales</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-2 gap-3"><div className="space-y-2"><Label htmlFor="discountPercent">Descuento %</Label><Input id="discountPercent" name="discountPercent" type="number" min="0" max="100" step="0.01" value={discountPercent} onChange={(event) => setDiscountPercent(Number(event.target.value))} /></div><div className="space-y-2"><Label htmlFor="taxPercent">Impuesto %</Label><Input id="taxPercent" name="taxPercent" type="number" min="0" max="100" step="0.01" value={taxPercent} onChange={(event) => setTaxPercent(Number(event.target.value))} /></div></div><div className="space-y-2 border-t pt-4 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal, setup.company.currency)}</span></div><div className="flex justify-between text-emerald-700"><span>Descuento</span><span>-{money(discount, setup.company.currency)}</span></div><div className="flex justify-between"><span>Impuestos</span><span>{money(tax, setup.company.currency)}</span></div><div className="flex justify-between pt-2 text-lg font-semibold"><span>Total</span><span>{money(total, setup.company.currency)}</span></div></div></CardContent></Card>
+        <Card><CardHeader><CardTitle>Totales</CardTitle></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label htmlFor="discountPercent">Descuento %</Label><Input id="discountPercent" name="discountPercent" type="number" min="0" max="100" step="0.01" value={discountPercent} onChange={(event) => setDiscountPercent(Number(event.target.value))} /></div><div className="space-y-2 border-t pt-4 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal, setup.company.currency)}</span></div><div className="flex justify-between text-emerald-700"><span>Descuento</span><span>-{money(discount, setup.company.currency)}</span></div><div className="flex justify-between"><span>Impuestos configurados</span><span>{money(tax, setup.company.currency)}</span></div><div className="flex justify-between pt-2 text-lg font-semibold"><span>Total</span><span>{money(total, setup.company.currency)}</span></div></div></CardContent></Card>
 
         <Card><CardHeader><CardTitle>Pago</CardTitle><CardDescription>Puedes combinar efectivo, tarjeta, transferencia y gift card.</CardDescription></CardHeader><CardContent className="space-y-3">{payments.map((payment, index) => <div key={`${payment.method}-${index}`} className="grid grid-cols-[110px_1fr_36px] gap-2"><select value={payment.method} onChange={(event) => setPayments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, method: event.target.value as Payment["method"], giftCardId: "" } : row))} className="h-9 rounded-lg border border-input bg-white px-2 text-sm"><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="giftcard">Gift card</option></select><Input type="number" min="0.01" step="0.01" placeholder="0.00" value={payment.amount} onChange={(event) => setPayments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} aria-label={`Importe del pago ${index + 1}`} /><Button type="button" variant="ghost" size="icon" disabled={payments.length === 1} onClick={() => setPayments((current) => current.filter((_, rowIndex) => rowIndex !== index))} aria-label="Eliminar pago"><Trash2 /></Button>{payment.method === "giftcard" ? <select required className="col-start-2 h-9 rounded-lg border border-input bg-white px-2 text-sm" value={payment.giftCardId} onChange={(event) => setPayments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, giftCardId: event.target.value } : row))}><option value="">Selecciona gift card</option>{setup.giftCards.map((card) => <option key={card.id} value={card.id}>{card.code} · {money(card.balanceCents, setup.company.currency)}</option>)}</select> : payment.method !== "cash" ? <Input className="col-start-2" placeholder="Referencia (opcional)" value={payment.reference} onChange={(event) => setPayments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, reference: event.target.value } : row))} /> : null}</div>)}<Button type="button" variant="outline" size="sm" disabled={payments.length >= 3} onClick={() => setPayments((current) => [...current, { method: "card", amount: "", reference: "", giftCardId: "" }])}><Plus />Combinar pago</Button><div className="border-t pt-3 text-sm"><div className="flex justify-between"><span>Pagado</span><span>{money(paid, setup.company.currency)}</span></div><div className="mt-1 flex justify-between font-medium"><span>Cambio</span><span>{money(Math.max(0, paid - total), setup.company.currency)}</span></div></div></CardContent></Card>
         {!hasOpenCashSession && branchId ? <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Esta sucursal no tiene una caja abierta. Ábrela desde el módulo Caja antes de cobrar.</p> : null}

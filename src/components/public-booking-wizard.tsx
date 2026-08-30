@@ -44,11 +44,12 @@ export function PublicBookingWizard({ catalog, minDate, maxDate }: { catalog: Pu
   const [phoneConfirm, setPhoneConfirm] = useState("");
 
   const branch = catalog.branches.find((item) => item.id === branchId);
-  const selectedServices = catalog.services.filter((service) => serviceIds.includes(service.id));
+  const servicesForBranch = catalog.services.filter((service) => service.branchIds.includes(branchId)).map((service) => ({ ...service, priceCents: service.branchPrices.find((price) => price.branchId === branchId)?.priceCents ?? service.priceCents }));
+  const selectedServices = servicesForBranch.filter((service) => serviceIds.includes(service.id));
   const durationMinutes = selectedServices.reduce((sum, service) => sum + service.durationMinutes, 0);
   const totalCents = selectedServices.reduce((sum, service) => sum + service.priceCents, 0);
   const money = useMemo(() => new Intl.NumberFormat("es-MX", { style: "currency", currency: catalog.company.currency }), [catalog.company.currency]);
-  const groupedServices = groupServices(catalog.services);
+  const groupedServices = groupServices(servicesForBranch);
   const eligibleEmployees = catalog.employees.filter((employee) => employee.branchId === branchId && (!employee.serviceIds.length || serviceIds.every((serviceId) => employee.serviceIds.includes(serviceId))));
   const matchingPhones = phoneDigits(phone).length >= 10 && phoneDigits(phone) === phoneDigits(phoneConfirm);
 

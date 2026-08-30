@@ -18,7 +18,7 @@ La fundación técnica y el primer recorrido de identidad están implementados:
 - Registro público deshabilitado tanto en Neon como en la aplicación.
 - Panel exclusivo de superadministración para crear empresas y usuarios.
 - Esquema multiempresa con claves compuestas de aislamiento y ventas transaccionales.
-- Agenda diaria con una columna por empleado y navegación por fecha.
+- Agenda diaria con una columna por empleado, creación por clic, edición por clic y reprogramación mediante arrastre.
 - Selector de sucursal para superadministradores y gerentes.
 - Catálogo básico de servicios y alta de citas con cliente nuevo o existente.
 - Restricción PostgreSQL que impide citas solapadas para un empleado.
@@ -29,6 +29,10 @@ La fundación técnica y el primer recorrido de identidad están implementados:
 - Caja por sucursal con apertura, movimientos, conciliación y cierre.
 - Gift cards con saldo transaccional, vencimiento, uso en ventas y devoluciones.
 - Comisiones configurables por empleado, servicio o categoría con aprobación y CSV.
+- Servicios con precio, impuestos, preparación, limpieza y disponibilidad configurable por sucursal.
+- Cierres y horarios especiales por sucursal, historial de compra del cliente y exportación paginada de citas.
+- Gestión central de roles, suspensiones y restablecimiento de contraseñas.
+- Rate limiting de acceso, encabezados de seguridad, endpoint de salud, pruebas y CI.
 
 Las cuentas no se crean desde el login. El superadministrador registra cada
 empresa, genera las credenciales iniciales y asigna el rol correspondiente.
@@ -51,6 +55,8 @@ Comandos útiles:
 - `npm run db:generate`: crea una migración desde el esquema Drizzle.
 - `npm run db:migrate`: aplica migraciones pendientes en Neon.
 - `npm run db:studio`: abre Drizzle Studio.
+- `npm test`: ejecuta las pruebas automatizadas.
+- `npm run db:seed:demo -- --company=cuatrocero`: carga datos demo; requiere `ALLOW_DEMO_SEED=true`.
 
 No deben incorporarse archivos `.env*` con secretos al repositorio.
 
@@ -58,3 +64,4 @@ No deben incorporarse archivos `.env*` con secretos al repositorio.
 
 - [Propuesta funcional y técnica](./PROPUESTA_PROYECTO.md)
 - [Plan de implementación](./IMPLEMENTACION.md)
+- [Guía operativa](./OPERATIONS.md)

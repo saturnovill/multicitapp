@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -20,6 +20,17 @@ export async function saveCustomerAction(_state: CustomerActionState, formData: 
     if (!canManageAppointments(operator)) return { status: "error", message: "No tienes permiso para administrar clientes" };
     const db = getDb();
     const customerId = parsed.data.customerId || randomUUID();
+    const duplicateConditions = [eq(customers.companyId, parsed.data.companyId)];
+    const matchingContact = or(
+      ...(parsed.data.email ? [eq(customers.email, parsed.data.email)] : []),
+      ...(parsed.data.phone ? [eq(customers.phone, parsed.data.phone)] : []),
+    );
+    if (matchingContact) duplicateConditions.push(matchingContact);
+    if (parsed.data.customerId) duplicateConditions.push(ne(customers.id, customerId));
+    if (matchingContact) {
+      const [duplicate] = await db.select({ id: customers.id, name: customers.name }).from(customers).where(and(...duplicateConditions)).limit(1);
+      if (duplicate) return { status: "error", message: `Ya existe un cliente con ese teléfono o correo: ${duplicate.name}` };
+    }
     if (parsed.data.customerId) {
       const [existing] = await db.select({ id: customers.id }).from(customers).where(and(eq(customers.id, customerId), eq(customers.companyId, parsed.data.companyId))).limit(1);
       if (!existing) return { status: "error", message: "El cliente no existe" };

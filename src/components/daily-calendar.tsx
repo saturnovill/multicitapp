@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarX2 } from "lucide-react";
 
 import { EditAppointmentDialog, type EditableAppointment } from "@/components/edit-appointment-dialog";
+import { moveAppointmentAction } from "@/app/app/appointment-actions";
+import { NewAppointmentDialog } from "@/components/new-appointment-dialog";
 
 type CalendarEmployee = {
   id: string;
@@ -22,6 +25,8 @@ type DailyCalendarProps = {
   canManageAppointments: boolean;
   customers: { id: string; name: string; phone: string | null }[];
   services: { id: string; name: string; durationMinutes: number; priceCents: number; currency: string }[];
+  selectedDate: string;
+  intervalMinutes: number;
 };
 
 const START_HOUR = 8;
@@ -65,8 +70,13 @@ export function DailyCalendar({
   canManageAppointments,
   customers,
   services,
+  selectedDate,
+  intervalMinutes,
 }: DailyCalendarProps) {
+  const router = useRouter();
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null);
+  const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [createTarget, setCreateTarget] = useState<{ employeeId: string; time: string } | null>(null);
   if (employees.length === 0) {
     return (
       <div className="grid min-h-96 place-items-center rounded-xl border border-dashed bg-white p-8 text-center">
@@ -82,6 +92,10 @@ export function DailyCalendar({
   }
 
   const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
+  const now = new Date();
+  const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const currentMinute = minutesInTimezone(now, timezone);
+  const currentTop = ((currentMinute - START_HOUR * 60) / 60) * HOUR_HEIGHT;
   const appointmentsByEmployee = new Map<string, CalendarAppointment[]>();
   for (const appointment of appointments) {
     const employeeAppointments =
@@ -95,6 +109,8 @@ export function DailyCalendar({
       <div className="overflow-auto">
         <div
           className="grid min-w-max"
+          role="grid"
+          aria-label="Calendario diario por empleado"
           style={{ gridTemplateColumns: `72px repeat(${employees.length}, minmax(220px, 1fr))` }}
         >
           <div className="sticky left-0 top-0 z-30 h-16 border-b border-r bg-stone-50/95 backdrop-blur" />
@@ -129,14 +145,36 @@ export function DailyCalendar({
           {employees.map((employee) => (
             <div
               key={employee.id}
-              className="relative border-r last:border-r-0"
+              className={canManageAppointments ? "relative cursor-crosshair border-r last:border-r-0" : "relative border-r last:border-r-0"}
+              onDragOver={canManageAppointments ? (event) => event.preventDefault() : undefined}
+              onClick={canManageAppointments ? (event) => {
+                if ((event.target as HTMLElement).closest("button")) return;
+                const rect = event.currentTarget.getBoundingClientRect(); const rawMinute = START_HOUR * 60 + ((event.clientY - rect.top) / HOUR_HEIGHT) * 60; const minute = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - intervalMinutes, Math.round(rawMinute / intervalMinutes) * intervalMinutes));
+                setCreateTarget({ employeeId: employee.id, time: `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}` });
+              } : undefined}
+              onKeyDown={canManageAppointments ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setCreateTarget({ employeeId: employee.id, time: "09:00" }); } } : undefined}
+              role="gridcell"
+              tabIndex={canManageAppointments ? 0 : undefined}
+              aria-label={canManageAppointments ? `Agenda de ${employee.name}. Presiona Enter para crear una cita.` : `Agenda de ${employee.name}`}
+              onDrop={canManageAppointments ? async (event) => {
+                event.preventDefault();
+                const appointmentId = event.dataTransfer.getData("text/appointment-id");
+                if (!appointmentId) return;
+                const rect = event.currentTarget.getBoundingClientRect();
+                const rawMinute = START_HOUR * 60 + ((event.clientY - rect.top) / HOUR_HEIGHT) * 60;
+                const minute = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - intervalMinutes, Math.round(rawMinute / intervalMinutes) * intervalMinutes));
+                const formData = new FormData(); formData.set("appointmentId", appointmentId); formData.set("companyId", companyId); formData.set("branchId", branchId); formData.set("employeeId", employee.id); formData.set("date", selectedDate); formData.set("time", `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`);
+                const result = await moveAppointmentAction(formData); setMoveMessage(result.message ?? null); if (result.status === "success") router.refresh();
+              } : undefined}
               style={{
                 height: gridHeight,
                 backgroundImage:
                   "linear-gradient(to bottom, rgb(231 229 228) 1px, transparent 1px), linear-gradient(to bottom, rgb(245 245 244) 1px, transparent 1px)",
                 backgroundSize: `100% ${HOUR_HEIGHT}px, 100% ${HOUR_HEIGHT / 2}px`,
               }}
+              title={canManageAppointments ? `Haz clic para crear una cita con ${employee.name}` : undefined}
             >
+              {selectedDate === localToday && currentTop >= 0 && currentTop <= gridHeight ? <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-red-500" style={{ top: currentTop }}><span className="absolute -top-1.5 -left-1 size-3 rounded-full bg-red-500" /></div> : null}
               {(appointmentsByEmployee.get(employee.id) ?? []).map(
                 (appointment) => {
                   const startsAt = new Date(appointment.startsAt);
@@ -151,6 +189,8 @@ export function DailyCalendar({
                       type="button"
                       key={appointment.id}
                       disabled={!canManageAppointments}
+                      draggable={canManageAppointments && !["completed", "cancelled", "no_show"].includes(appointment.status)}
+                      onDragStart={(event) => { event.dataTransfer.setData("text/appointment-id", appointment.id); event.dataTransfer.effectAllowed = "move"; }}
                       onClick={() => setSelectedAppointment(appointment)}
                       className="absolute inset-x-2 overflow-hidden rounded-lg border-l-4 bg-violet-50 px-2.5 py-2 text-left text-violet-950 shadow-sm transition hover:bg-violet-100 disabled:cursor-default disabled:hover:bg-violet-50"
                       style={{
@@ -178,6 +218,7 @@ export function DailyCalendar({
           ))}
         </div>
       </div>
+      {moveMessage ? <p role="status" className="border-t bg-stone-50 px-4 py-2 text-xs text-muted-foreground">{moveMessage}</p> : null}
       {selectedAppointment ? (
         <EditAppointmentDialog
           key={selectedAppointment.id}
@@ -192,6 +233,7 @@ export function DailyCalendar({
           services={services}
         />
       ) : null}
+      {createTarget ? <NewAppointmentDialog key={`${createTarget.employeeId}-${createTarget.time}`} companyId={companyId} branchId={branchId} date={selectedDate} employees={employees} customers={customers} services={services} defaultEmployeeId={createTarget.employeeId} defaultTime={createTarget.time} intervalMinutes={intervalMinutes} controlledOpen onControlledOpenChange={(open) => { if (!open) setCreateTarget(null); }} /> : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { getDb } from "@/db";
@@ -31,7 +31,7 @@ export const getTenantContext = cache(async (authUserId: string) => {
       eq(companyMemberships.userId, appUsers.id),
     )
     .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
-    .where(eq(appUsers.authUserId, authUserId))
+    .where(and(eq(appUsers.authUserId, authUserId), eq(appUsers.isActive, true), eq(companyMemberships.status, "active"), eq(companies.status, "active")))
     .orderBy(asc(companies.name))
     .limit(1);
 

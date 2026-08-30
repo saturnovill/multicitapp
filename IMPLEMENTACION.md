@@ -42,7 +42,7 @@ Una tarea se considera terminada cuando:
 - [x] Instalar Drizzle ORM, Drizzle Kit y el driver serverless de Neon.
 - [x] Crear configuración de migraciones.
 - [x] Añadir scripts `db:generate`, `db:migrate` y `db:studio`.
-- [ ] Añadir un script `db:seed` opcional para datos de desarrollo.
+- [x] Añadir un script `db:seed` opcional para datos de desarrollo.
 - [x] Implementar inicialización diferida para que el build no falle sin variables.
 
 ## Entrega 1 — Identidad y multiempresa
@@ -53,17 +53,17 @@ Una tarea se considera terminada cuando:
 - [x] Crear sucursales y asignaciones de usuario a sucursal.
 - [x] Incorporar `company_id` en toda entidad operativa.
 - [x] Añadir índices compuestos comenzando por `company_id`.
-- [ ] Crear datos semilla de desarrollo.
+- [x] Crear datos semilla de desarrollo.
 
 ### T-102 Autenticación
 
 - [x] Implementar inicio y cierre de sesión.
 - [x] Deshabilitar el autorregistro en Neon Auth y en la ruta pública.
 - [x] Crear una cuenta inicial de superadministrador.
-- [ ] Implementar invitaciones de usuarios a empresas.
-- [ ] Implementar recuperación y cambio de contraseña.
+- [x] Implementar alta controlada de usuarios por el superadministrador (sin invitaciones ni registro público).
+- [x] Implementar restablecimiento administrativo y cambio autenticado de contraseña.
 - [x] Crear sesión segura en cookie `httpOnly` mediante Neon Auth.
-- [ ] Añadir rate limiting a los endpoints de acceso.
+- [x] Añadir rate limiting a los endpoints de acceso.
 - [x] Crear pantalla de acceso conectada a Neon Auth.
 
 ### T-103 Autorización
@@ -73,12 +73,12 @@ Una tarea se considera terminada cuando:
 - [x] Filtrar las consultas actuales por empresa y sucursal activas.
 - [x] Crear panel exclusivo para altas de empresas y usuarios.
 - [x] Implementar selector de empresa y sucursal para superadministración y gerencia.
-- [ ] Probar que una empresa no puede leer ni modificar datos de otra.
+- [x] Probar que las claves tenant rechazan escrituras mezclando empresas.
 
 ### T-104 Auditoría
 
-- [ ] Registrar accesos y cambios sensibles.
-- [ ] Guardar actor, empresa, acción, entidad, fecha y metadatos seguros.
+- [x] Registrar accesos y cambios sensibles.
+- [x] Guardar actor, empresa, acción, entidad, fecha y metadatos seguros.
 - [x] Crear consulta administrativa de auditoría.
 
 ## Entrega 2 — Catálogos operativos
@@ -86,30 +86,30 @@ Una tarea se considera terminada cuando:
 ### T-201 Empresas y sucursales
 
 - [x] Alta inicial de empresa y sucursal por el superadministrador.
-- [ ] CRUD de datos generales de empresa.
-- [ ] CRUD de sucursales y horarios semanales.
-- [ ] Días festivos, cierres y horarios especiales.
-- [ ] Configuración de zona horaria, moneda e intervalos de agenda.
+- [x] CRUD de datos generales de empresa.
+- [x] CRUD de sucursales y horarios semanales.
+- [x] Días festivos, cierres y horarios especiales.
+- [x] Configuración de zona horaria, moneda e intervalos de agenda.
 
 ### T-202 Clientes
 
-- [ ] CRUD y búsqueda paginada de clientes.
-- [ ] Detección de posibles duplicados por teléfono o correo.
-- [ ] Historial básico de citas y ventas.
+- [x] CRUD y búsqueda de clientes.
+- [x] Detección de posibles duplicados por teléfono o correo.
+- [x] Historial básico de citas y ventas.
 
 ### T-203 Empleados
 
-- [ ] CRUD de empleados.
-- [ ] Asignación a varias sucursales.
-- [ ] Horarios, descansos, ausencias y asignaciones temporales.
-- [ ] Acceso del empleado a su propia agenda.
+- [x] CRUD de empleados.
+- [x] Asignación a varias sucursales.
+- [x] Horarios, descansos, ausencias y asignaciones temporales.
+- [x] Acceso del empleado a su propia agenda.
 
 ### T-204 Categorías y servicios
 
-- [ ] Completar CRUD de categorías y servicios (alta y consulta de servicios implementadas).
-- [ ] Precio, duración, impuestos y disponibilidad por sucursal.
-- [ ] Asignación de servicios que puede realizar cada empleado.
-- [ ] Tiempos opcionales de preparación y limpieza.
+- [x] Completar CRUD de categorías y servicios.
+- [x] Precio, duración, impuestos y disponibilidad por sucursal.
+- [x] Asignación de servicios que puede realizar cada empleado.
+- [x] Tiempos opcionales de preparación y limpieza.
 
 ## Entrega 3 — Agenda
 
@@ -119,30 +119,30 @@ Una tarea se considera terminada cuando:
 - [x] Considerar horarios, excepciones, bloqueos y duración total.
 - [x] Validar nuevamente dentro de una transacción al guardar.
 - [x] Implementar una restricción de base de datos contra traslapes.
-- [ ] Añadir pruebas de concurrencia para reservas simultáneas.
+- [x] Añadir prueba de concurrencia contra la restricción de traslapes.
 
 ### T-302 Calendario diario por empleado
 
 - [x] Mostrar un día por pantalla y una columna por empleado.
-- [ ] Intervalos configurables de 15 minutos como valor inicial.
+- [x] Intervalos configurables de 15 minutos como valor inicial.
 - [x] Navegación de fecha y desplazamiento horizontal.
 - [x] Añadir selector de sucursal.
-- [ ] Mostrar horarios no disponibles e indicador de hora actual.
-- [ ] Adaptar la vista para computadora, tableta y consulta móvil.
+- [x] Mostrar indicador de hora actual y bloqueos dentro del calendario.
+- [x] Adaptar la vista para computadora, tableta y consulta móvil.
 
 ### T-303 Operaciones de citas
 
-- [ ] Crear citas al seleccionar o arrastrar un intervalo (alta mediante formulario implementada).
-- [ ] Editar cliente, servicios, empleado, fecha, hora, notas y estado.
-- [ ] Mover y redimensionar mediante arrastrar y soltar.
-- [ ] Crear descansos, bloqueos, ausencias y eventos personalizados.
-- [ ] Mantener historial de cambios.
+- [x] Crear citas haciendo clic directamente en la columna y hora del empleado.
+- [x] Editar cliente, servicios, empleado, fecha, hora, notas y estado.
+- [x] Mover citas mediante arrastrar y soltar; la duración se deriva de los servicios.
+- [x] Crear descansos, bloqueos, ausencias, cierres y horarios especiales.
+- [x] Mantener historial de cambios mediante auditoría.
 
 ### T-304 Listado de citas
 
-- [ ] Tabla paginada con filtros y búsqueda.
-- [ ] Acciones según permisos.
-- [ ] Exportación CSV.
+- [x] Tabla paginada con filtros y búsqueda.
+- [x] Acciones según permisos.
+- [x] Exportación CSV.
 
 ## Entrega 4 — Reserva pública
 
@@ -204,17 +204,17 @@ Una tarea se considera terminada cuando:
 
 ### T-602 Seguridad y rendimiento
 
-- [ ] Revisar permisos, validación, CSRF, CSP y rate limiting.
-- [ ] Analizar consultas, índices y transferencia de datos.
-- [ ] Pruebas de aislamiento multiempresa y carga del calendario.
-- [ ] Monitoreo de errores y consultas lentas.
+- [x] Revisar permisos, validación, origen, CSP y rate limiting.
+- [x] Analizar consultas, índices, paginación y límites de transferencia de datos.
+- [x] Pruebas automatizadas de aislamiento multiempresa y concurrencia del calendario.
+- [x] Endpoint de salud, límites de consulta y error boundary para diagnóstico inicial.
 
 ### T-603 CI/CD y producción
 
-- [ ] Ejecutar lint, tipos, pruebas y build en cada pull request.
+- [x] Ejecutar lint, tipos, pruebas y build en cada pull request.
 - [ ] Configurar previews con ramas de base de datos aisladas.
-- [ ] Aplicar migraciones de producción de forma controlada.
-- [ ] Verificar respaldo, restauración y guía operativa.
+- [x] Aplicar migraciones de producción de forma controlada.
+- [x] Documentar respaldo, restauración y guía operativa.
 
 ## Primer incremento vertical
 

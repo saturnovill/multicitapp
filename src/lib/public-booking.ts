@@ -12,6 +12,7 @@ import {
   employeeServices,
   employees,
   scheduleExceptions,
+  serviceBranches,
   serviceCategories,
   services,
   weeklySchedules,
@@ -22,18 +23,18 @@ import type { PublicBookingCatalog, PublicBookingSlot } from "@/types/public-boo
 export const getPublicBookingCatalog = cache(async function getPublicBookingCatalog(companySlug: string): Promise<PublicBookingCatalog | null> {
   const db = getDb();
   const [company] = await db
-    .select({ id: companies.id, name: companies.name, slug: companies.slug, timezone: companies.timezone, currency: companies.currency })
+    .select({ id: companies.id, name: companies.name, slug: companies.slug, timezone: companies.timezone, currency: companies.currency, appointmentIntervalMinutes: companies.appointmentIntervalMinutes, bookingLeadMinutes: companies.bookingLeadMinutes })
     .from(companies)
     .where(and(eq(companies.slug, companySlug), eq(companies.status, "active")))
     .limit(1);
   if (!company) return null;
 
-  const [branchRows, serviceRows, employeeRows] = await Promise.all([
+  const [branchRows, serviceRows, employeeRows, serviceBranchRows] = await Promise.all([
     db.select({ id: branches.id, name: branches.name, address: branches.address, timezone: branches.timezone })
       .from(branches)
       .where(and(eq(branches.companyId, company.id), eq(branches.status, "active")))
       .orderBy(asc(branches.name)),
-    db.select({ id: services.id, name: services.name, description: services.description, durationMinutes: services.durationMinutes, priceCents: services.priceCents, currency: services.currency, categoryName: serviceCategories.name })
+    db.select({ id: services.id, name: services.name, description: services.description, durationMinutes: services.durationMinutes, preparationMinutes: services.preparationMinutes, cleanupMinutes: services.cleanupMinutes, priceCents: services.priceCents, currency: services.currency, categoryName: serviceCategories.name })
       .from(services)
       .leftJoin(serviceCategories, and(eq(serviceCategories.id, services.categoryId), eq(serviceCategories.companyId, services.companyId)))
       .where(and(eq(services.companyId, company.id), eq(services.status, "active"), eq(services.isPublic, true)))
@@ -44,6 +45,7 @@ export const getPublicBookingCatalog = cache(async function getPublicBookingCata
       .innerJoin(branches, and(eq(branches.id, employeeBranches.branchId), eq(branches.companyId, employees.companyId)))
       .where(and(eq(employees.companyId, company.id), eq(employees.status, "active"), eq(branches.status, "active")))
       .orderBy(asc(employees.name)),
+    db.select({ serviceId: serviceBranches.serviceId, branchId: serviceBranches.branchId, priceOverrideCents: serviceBranches.priceOverrideCents }).from(serviceBranches).where(and(eq(serviceBranches.companyId, company.id), eq(serviceBranches.isAvailable, true))),
   ]);
 
   const employeeIds = Array.from(new Set(employeeRows.map((employee) => employee.id)));
@@ -58,7 +60,11 @@ export const getPublicBookingCatalog = cache(async function getPublicBookingCata
   return {
     company,
     branches: branchRows.map((branch) => ({ ...branch, timezone: branch.timezone ?? company.timezone })),
-    services: serviceRows,
+    services: serviceRows.map((service) => {
+      const assignments = serviceBranchRows.filter((row) => row.serviceId === service.id);
+      const available = assignments.length ? assignments : branchRows.map((branch) => ({ serviceId: service.id, branchId: branch.id, priceOverrideCents: null }));
+      return { ...service, durationMinutes: service.durationMinutes + service.preparationMinutes + service.cleanupMinutes, branchIds: available.map((row) => row.branchId), branchPrices: available.map((row) => ({ branchId: row.branchId, priceCents: row.priceOverrideCents ?? service.priceCents })) };
+    }),
     employees: employeeRows.map((employee) => ({ ...employee, serviceIds: assignments.get(employee.id) ?? [] })),
   };
 });
@@ -85,7 +91,7 @@ export async function getPublicBookingAvailability({
   const today = dateInTimezone(new Date(), branch.timezone);
   if (date < today || date > addCalendarDays(today, 31)) return { slots: [], error: "Selecciona una fecha dentro de los próximos 31 días" };
   const requestedServices = Array.from(new Set(serviceIds));
-  const selectedServices = catalog.services.filter((service) => requestedServices.includes(service.id));
+  const selectedServices = catalog.services.filter((service) => requestedServices.includes(service.id) && service.branchIds.includes(branchId));
   if (!requestedServices.length || selectedServices.length !== requestedServices.length) return { slots: [], error: "Selecciona servicios disponibles" };
   const durationMinutes = selectedServices.reduce((sum, service) => sum + service.durationMinutes, 0);
   if (durationMinutes > 480) return { slots: [], error: "La duración total excede el máximo permitido" };
@@ -114,14 +120,15 @@ export async function getPublicBookingAvailability({
       .where(and(eq(appointments.companyId, catalog.company.id), eq(appointments.branchId, branchId), inArray(appointments.employeeId, eligibleIds), notInArray(appointments.status, ["cancelled", "no_show"]), lt(appointments.startsAt, dayEnd), gt(appointments.endsAt, dayStart))),
   ]);
 
-  const nowWithLeadTime = Date.now() + 30 * 60_000;
+  const nowWithLeadTime = Date.now() + catalog.company.bookingLeadMinutes * 60_000;
   const slots: PublicBookingSlot[] = [];
   const seen = new Set<string>();
   for (const employee of eligibleEmployees) {
     const ownSchedules = employeeScheduleRows.filter((row) => row.employeeId === employee.id);
-    const scheduleRows = ownSchedules.length ? ownSchedules : branchScheduleRows;
+    const specialHours = exceptionRows.filter((row) => row.type === "special_hours" && (!row.employeeId || row.employeeId === employee.id)).map((row) => ({ startMinute: minuteInTimezone(row.startsAt, branch.timezone), endMinute: minuteInTimezone(row.endsAt, branch.timezone) }));
+    const scheduleRows = specialHours.length ? specialHours : ownSchedules.length ? ownSchedules : branchScheduleRows;
     for (const schedule of scheduleRows) {
-      for (let minute = schedule.startMinute; minute + durationMinutes <= schedule.endMinute; minute += 15) {
+      for (let minute = schedule.startMinute; minute + durationMinutes <= schedule.endMinute; minute += catalog.company.appointmentIntervalMinutes) {
         const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
         const startsAt = zonedDateTimeToUtc(date, time, branch.timezone);
         const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
@@ -143,4 +150,9 @@ export async function getPublicBookingAvailability({
     return { slots: Array.from(firstByTime.values()) };
   }
   return { slots };
+}
+
+function minuteInTimezone(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  return Number(parts.find((part) => part.type === "hour")?.value ?? 0) * 60 + Number(parts.find((part) => part.type === "minute")?.value ?? 0);
 }

@@ -6,7 +6,8 @@ import { DailyCalendar } from "@/components/daily-calendar";
 import { NewAppointmentDialog } from "@/components/new-appointment-dialog";
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/db";
-import { appointmentServices, appointments, customers, employeeBranches, employees, services } from "@/db/schema";
+import { appointmentServices, appointments, companies, customers, employeeBranches, employees } from "@/db/schema";
+import { getEffectiveServices } from "@/lib/service-availability";
 
 type AppointmentCalendarViewProps = {
   companyId: string;
@@ -52,7 +53,7 @@ export async function AppointmentCalendarView({
   const date = validDate(selectedDate) ?? today;
   const db = getDb();
 
-  const [team, dailyAppointments, appointmentServiceRows, customerRows, serviceRows] = await Promise.all([
+  const [team, dailyAppointments, appointmentServiceRows, customerRows, effectiveServices, companySettingsRows] = await Promise.all([
     db
       .select({ id: employees.id, name: employees.name, color: employees.color })
       .from(employees)
@@ -104,10 +105,11 @@ export async function AppointmentCalendarView({
     canManageAppointments
       ? db.select({ id: customers.id, name: customers.name, phone: customers.phone }).from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name)).limit(500)
       : Promise.resolve([]),
-    canManageAppointments
-      ? db.select({ id: services.id, name: services.name, durationMinutes: services.durationMinutes, priceCents: services.priceCents, currency: services.currency }).from(services).where(and(eq(services.companyId, companyId), eq(services.status, "active"))).orderBy(asc(services.name))
-      : Promise.resolve([]),
+    canManageAppointments ? getEffectiveServices(companyId, branch.id) : Promise.resolve([]),
+    db.select({ currency: companies.currency, appointmentIntervalMinutes: companies.appointmentIntervalMinutes }).from(companies).where(eq(companies.id, companyId)).limit(1),
   ]);
+  const companySettings = companySettingsRows[0] ?? { currency: "MXN", appointmentIntervalMinutes: 15 };
+  const serviceRows = effectiveServices.map((service) => ({ ...service, currency: companySettings.currency }));
 
   const label = new Intl.DateTimeFormat("es-MX", {
     weekday: "long",
@@ -149,10 +151,11 @@ export async function AppointmentCalendarView({
             </Button>
           </div>
           {canManageAppointments ? (
-            <NewAppointmentDialog companyId={companyId} branchId={branch.id} date={date} employees={team} customers={customerRows} services={serviceRows} />
+            <NewAppointmentDialog companyId={companyId} branchId={branch.id} date={date} employees={team} customers={customerRows} services={serviceRows} intervalMinutes={companySettings.appointmentIntervalMinutes} />
           ) : null}
         </div>
       </header>
+      {canManageAppointments ? <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-violet-100 bg-violet-50/60 px-4 py-3 text-xs text-violet-900"><span><strong>Clic en un espacio:</strong> crear cita con empleado y hora precargados</span><span><strong>Arrastrar una cita:</strong> cambiar empleado u horario</span><span><strong>Clic en una cita:</strong> editar detalles y estado</span></div> : null}
       <DailyCalendar
         employees={team}
         appointments={dailyAppointments.map((appointment) => ({ ...appointment, startsAt: appointment.startsAt.toISOString(), endsAt: appointment.endsAt.toISOString(), serviceIds: servicesByAppointment.get(appointment.id) ?? [] }))}
@@ -162,6 +165,8 @@ export async function AppointmentCalendarView({
         canManageAppointments={canManageAppointments}
         customers={customerRows}
         services={serviceRows}
+        selectedDate={date}
+        intervalMinutes={companySettings.appointmentIntervalMinutes}
       />
     </div>
   );

@@ -1,37 +1,48 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getDb } from "@/db";
-import { auditLogs, companies, serviceCategories, services } from "@/db/schema";
+import { auditLogs, branches, companies, serviceBranches, serviceCategories, services } from "@/db/schema";
 import { canManageCatalogs, requireCompanyOperator } from "@/lib/company-operator";
 
 export type ServiceActionState = { status: "idle" | "success" | "error"; message?: string };
-const serviceSchema = z.object({ serviceId: z.union([z.uuid(), z.literal("")]), companyId: z.uuid(), categoryId: z.union([z.uuid(), z.literal("")]), code: z.string().trim().min(1).max(48).transform((value) => value.toUpperCase()), name: z.string().trim().min(2).max(160), description: z.string().trim().max(2000), durationMinutes: z.coerce.number().int().min(5).max(720), price: z.coerce.number().min(0).max(1_000_000), status: z.enum(["active", "inactive"]), isPublic: z.boolean() });
+const serviceSchema = z.object({ serviceId: z.union([z.uuid(), z.literal("")]), companyId: z.uuid(), categoryId: z.union([z.uuid(), z.literal("")]), code: z.string().trim().min(1).max(48).transform((value) => value.toUpperCase()), name: z.string().trim().min(2).max(160), description: z.string().trim().max(2000), durationMinutes: z.coerce.number().int().min(5).max(720), preparationMinutes: z.coerce.number().int().min(0).max(240), cleanupMinutes: z.coerce.number().int().min(0).max(240), price: z.coerce.number().min(0).max(1_000_000), taxPercent: z.coerce.number().min(0).max(100), status: z.enum(["active", "inactive"]), isPublic: z.boolean(), branchIds: z.array(z.uuid()).min(1) });
 const categorySchema = z.object({ categoryId: z.union([z.uuid(), z.literal("")]), companyId: z.uuid(), name: z.string().trim().min(2).max(120), status: z.enum(["active", "inactive"]) });
 
 export async function saveServiceAction(_state: ServiceActionState, formData: FormData): Promise<ServiceActionState> {
   try {
-    const parsed = serviceSchema.safeParse({ serviceId: formData.get("serviceId") ?? "", companyId: formData.get("companyId"), categoryId: formData.get("categoryId") ?? "", code: formData.get("code"), name: formData.get("name"), description: formData.get("description") ?? "", durationMinutes: formData.get("durationMinutes"), price: formData.get("price"), status: formData.get("status") ?? "active", isPublic: formData.get("isPublic") === "on" });
+    const parsed = serviceSchema.safeParse({ serviceId: formData.get("serviceId") ?? "", companyId: formData.get("companyId"), categoryId: formData.get("categoryId") ?? "", code: formData.get("code"), name: formData.get("name"), description: formData.get("description") ?? "", durationMinutes: formData.get("durationMinutes"), preparationMinutes: formData.get("preparationMinutes") ?? 0, cleanupMinutes: formData.get("cleanupMinutes") ?? 0, price: formData.get("price"), taxPercent: formData.get("taxPercent") ?? 0, status: formData.get("status") ?? "active", isPublic: formData.get("isPublic") === "on", branchIds: Array.from(new Set(formData.getAll("branchIds").map(String))) });
     if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Revisa los datos del servicio" };
     const operator = await requireCompanyOperator(parsed.data.companyId); if (!canManageCatalogs(operator)) return { status: "error", message: "No tienes permiso para administrar servicios" };
     const db = getDb();
-    const [company, category, existing] = await Promise.all([
+    const [company, category, existing, branchRows] = await Promise.all([
       db.select({ currency: companies.currency }).from(companies).where(eq(companies.id, parsed.data.companyId)).limit(1),
       parsed.data.categoryId ? db.select({ id: serviceCategories.id }).from(serviceCategories).where(and(eq(serviceCategories.id, parsed.data.categoryId), eq(serviceCategories.companyId, parsed.data.companyId))).limit(1) : Promise.resolve([]),
       parsed.data.serviceId ? db.select({ id: services.id }).from(services).where(and(eq(services.id, parsed.data.serviceId), eq(services.companyId, parsed.data.companyId))).limit(1) : Promise.resolve([]),
+      db.select({ id: branches.id }).from(branches).where(and(eq(branches.companyId, parsed.data.companyId), inArray(branches.id, parsed.data.branchIds))),
     ]);
     if (!company.length) return { status: "error", message: "La empresa no existe" };
     if (parsed.data.categoryId && !category.length) return { status: "error", message: "La categoría no pertenece a la empresa" };
     if (parsed.data.serviceId && !existing.length) return { status: "error", message: "El servicio no existe" };
+    if (branchRows.length !== parsed.data.branchIds.length) return { status: "error", message: "Una sucursal no pertenece a la empresa" };
     const serviceId = parsed.data.serviceId || randomUUID();
-    await db.batch([
-      parsed.data.serviceId ? db.update(services).set({ categoryId: parsed.data.categoryId || null, code: parsed.data.code, name: parsed.data.name, description: parsed.data.description || null, durationMinutes: parsed.data.durationMinutes, priceCents: Math.round(parsed.data.price * 100), status: parsed.data.status, isPublic: parsed.data.isPublic, updatedAt: new Date() }).where(and(eq(services.id, serviceId), eq(services.companyId, parsed.data.companyId))) : db.insert(services).values({ id: serviceId, companyId: parsed.data.companyId, categoryId: parsed.data.categoryId || null, code: parsed.data.code, name: parsed.data.name, description: parsed.data.description || null, durationMinutes: parsed.data.durationMinutes, priceCents: Math.round(parsed.data.price * 100), currency: company[0].currency, status: parsed.data.status, isPublic: parsed.data.isPublic }),
-      db.insert(auditLogs).values({ companyId: parsed.data.companyId, actorUserId: operator.appUserId, action: parsed.data.serviceId ? "service.updated" : "service.created", entityType: "service", entityId: serviceId, metadata: { code: parsed.data.code, name: parsed.data.name, status: parsed.data.status, isPublic: parsed.data.isPublic } }),
-    ]);
+    const priceCents = Math.round(parsed.data.price * 100);
+    const branchAssignments = parsed.data.branchIds.map((branchId) => {
+      const raw = String(formData.get(`branchPrice-${branchId}`) ?? "").trim();
+      const override = raw === "" ? null : Math.round(Number(raw) * 100);
+      return { branchId, priceOverrideCents: Number.isFinite(override) && override! >= 0 ? override : null };
+    });
+    const queries = [
+      parsed.data.serviceId ? db.update(services).set({ categoryId: parsed.data.categoryId || null, code: parsed.data.code, name: parsed.data.name, description: parsed.data.description || null, durationMinutes: parsed.data.durationMinutes, preparationMinutes: parsed.data.preparationMinutes, cleanupMinutes: parsed.data.cleanupMinutes, priceCents, taxBasisPoints: Math.round(parsed.data.taxPercent * 100), status: parsed.data.status, isPublic: parsed.data.isPublic, updatedAt: new Date() }).where(and(eq(services.id, serviceId), eq(services.companyId, parsed.data.companyId))) : db.insert(services).values({ id: serviceId, companyId: parsed.data.companyId, categoryId: parsed.data.categoryId || null, code: parsed.data.code, name: parsed.data.name, description: parsed.data.description || null, durationMinutes: parsed.data.durationMinutes, preparationMinutes: parsed.data.preparationMinutes, cleanupMinutes: parsed.data.cleanupMinutes, priceCents, taxBasisPoints: Math.round(parsed.data.taxPercent * 100), currency: company[0].currency, status: parsed.data.status, isPublic: parsed.data.isPublic }),
+      ...(parsed.data.serviceId ? [db.delete(serviceBranches).where(and(eq(serviceBranches.companyId, parsed.data.companyId), eq(serviceBranches.serviceId, serviceId)))] : []),
+      ...branchAssignments.map((assignment) => db.insert(serviceBranches).values({ companyId: parsed.data.companyId, serviceId, branchId: assignment.branchId, isAvailable: true, priceOverrideCents: assignment.priceOverrideCents })),
+      db.insert(auditLogs).values({ companyId: parsed.data.companyId, actorUserId: operator.appUserId, action: parsed.data.serviceId ? "service.updated" : "service.created", entityType: "service", entityId: serviceId, metadata: { code: parsed.data.code, name: parsed.data.name, status: parsed.data.status, isPublic: parsed.data.isPublic, branchIds: parsed.data.branchIds } }),
+    ];
+    await db.batch(queries as [typeof queries[number], ...typeof queries]);
     revalidateServiceRoutes(serviceId); return { status: "success", message: parsed.data.serviceId ? "Servicio actualizado" : "Servicio creado" };
   } catch (error) { console.error("[services:save] failed", { error: String(error) }); const duplicate = String(error).includes("services_company_code_uidx"); return { status: "error", message: duplicate ? "Ese código ya existe en la empresa" : "No fue posible guardar el servicio" }; }
 }

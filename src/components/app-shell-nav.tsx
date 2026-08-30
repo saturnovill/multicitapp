@@ -15,6 +15,7 @@ import {
   Gift,
   Percent,
   UsersRound,
+  ShieldCheck,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const navigation = [
   { href: "/app/empleados", label: "Empleados", icon: UsersRound },
   { href: "/app/servicios", label: "Servicios", icon: BriefcaseBusiness },
   { href: "/app/sucursales", label: "Sucursales", icon: MapPin },
+  { href: "/app/seguridad", label: "Seguridad", icon: ShieldCheck },
 ];
 
 export function AppShellNav() {

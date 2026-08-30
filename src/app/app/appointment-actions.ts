@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -15,10 +15,10 @@ import {
   customers,
   employeeBranches,
   employees,
-  services,
 } from "@/db/schema";
 import { canManageAppointments, requireCompanyOperator } from "@/lib/company-operator";
 import { checkAppointmentAvailability } from "@/lib/appointment-availability";
+import { getEffectiveServices } from "@/lib/service-availability";
 
 export type AppointmentActionState = {
   status: "idle" | "success" | "error";
@@ -62,6 +62,7 @@ const cancelAppointmentSchema = z.object({
   companyId: z.uuid(),
   branchId: z.uuid(),
 });
+const moveAppointmentSchema = z.object({ appointmentId: z.uuid(), companyId: z.uuid(), branchId: z.uuid(), employeeId: z.uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) });
 
 function zonedDateTimeToUtc(date: string, time: string, timezone: string) {
   const [year, month, day] = date.split("-").map(Number);
@@ -131,7 +132,7 @@ export async function createAppointmentAction(
     const [branch, employee, serviceRows] = await Promise.all([
       db.select({ id: branches.id, timezone: branches.timezone, companyTimezone: companies.timezone }).from(branches).innerJoin(companies, eq(companies.id, branches.companyId)).where(and(eq(branches.id, parsed.data.branchId), eq(branches.companyId, parsed.data.companyId), eq(branches.status, "active"))).limit(1),
       db.select({ id: employees.id }).from(employees).innerJoin(employeeBranches, and(eq(employeeBranches.employeeId, employees.id), eq(employeeBranches.companyId, parsed.data.companyId))).where(and(eq(employees.id, parsed.data.employeeId), eq(employees.companyId, parsed.data.companyId), eq(employees.status, "active"), eq(employeeBranches.branchId, parsed.data.branchId))).limit(1),
-      db.select({ id: services.id, name: services.name, durationMinutes: services.durationMinutes, priceCents: services.priceCents }).from(services).where(and(eq(services.companyId, parsed.data.companyId), eq(services.status, "active"), inArray(services.id, parsed.data.serviceIds))),
+      getEffectiveServices(parsed.data.companyId, parsed.data.branchId, parsed.data.serviceIds),
     ]);
     if (!branch.length) return { status: "error", message: "La sucursal no está disponible" };
     if (!employee.length) return { status: "error", message: "El empleado no pertenece a esta sucursal" };
@@ -232,7 +233,7 @@ export async function updateAppointmentAction(
       db.select({ timezone: branches.timezone, companyTimezone: companies.timezone }).from(branches).innerJoin(companies, eq(companies.id, branches.companyId)).where(and(eq(branches.id, parsed.data.branchId), eq(branches.companyId, parsed.data.companyId), eq(branches.status, "active"))).limit(1),
       db.select({ id: employees.id }).from(employees).innerJoin(employeeBranches, and(eq(employeeBranches.employeeId, employees.id), eq(employeeBranches.companyId, parsed.data.companyId))).where(and(eq(employees.id, parsed.data.employeeId), eq(employees.companyId, parsed.data.companyId), eq(employees.status, "active"), eq(employeeBranches.branchId, parsed.data.branchId))).limit(1),
       db.select({ id: customers.id }).from(customers).where(and(eq(customers.id, parsed.data.customerId), eq(customers.companyId, parsed.data.companyId))).limit(1),
-      db.select({ id: services.id, name: services.name, durationMinutes: services.durationMinutes, priceCents: services.priceCents }).from(services).where(and(eq(services.companyId, parsed.data.companyId), eq(services.status, "active"), inArray(services.id, parsed.data.serviceIds))),
+      getEffectiveServices(parsed.data.companyId, parsed.data.branchId, parsed.data.serviceIds),
     ]);
     if (!existing.length) return { status: "error", message: "La cita ya no existe" };
     if (!branch.length) return { status: "error", message: "La sucursal no está disponible" };
@@ -290,6 +291,34 @@ export async function cancelAppointmentAction(
     console.error("[appointments:cancel] failed", { error: String(error) });
     return { status: "error", message: "No fue posible cancelar la cita" };
   }
+}
+
+export async function moveAppointmentAction(formData: FormData): Promise<AppointmentActionState> {
+  try {
+    const parsed = moveAppointmentSchema.safeParse({ appointmentId: formData.get("appointmentId"), companyId: formData.get("companyId"), branchId: formData.get("branchId"), employeeId: formData.get("employeeId"), date: formData.get("date"), time: formData.get("time") });
+    if (!parsed.success) return { status: "error", message: "La nueva posición no es válida" };
+    const operator = await requireCompanyOperator(parsed.data.companyId);
+    if (!canManageAppointments(operator)) return { status: "error", message: "No tienes permiso para mover citas" };
+    const db = getDb();
+    const [existingRows, branchRows, employeeRows, serviceRows] = await Promise.all([
+      db.select({ id: appointments.id, startsAt: appointments.startsAt, endsAt: appointments.endsAt, status: appointments.status }).from(appointments).where(and(eq(appointments.id, parsed.data.appointmentId), eq(appointments.companyId, parsed.data.companyId), eq(appointments.branchId, parsed.data.branchId))).limit(1),
+      db.select({ timezone: branches.timezone, companyTimezone: companies.timezone }).from(branches).innerJoin(companies, eq(companies.id, branches.companyId)).where(and(eq(branches.id, parsed.data.branchId), eq(branches.companyId, parsed.data.companyId))).limit(1),
+      db.select({ id: employees.id }).from(employees).innerJoin(employeeBranches, and(eq(employeeBranches.employeeId, employees.id), eq(employeeBranches.companyId, parsed.data.companyId))).where(and(eq(employees.id, parsed.data.employeeId), eq(employees.companyId, parsed.data.companyId), eq(employees.status, "active"), eq(employeeBranches.branchId, parsed.data.branchId))).limit(1),
+      db.select({ serviceId: appointmentServices.serviceId }).from(appointmentServices).where(and(eq(appointmentServices.companyId, parsed.data.companyId), eq(appointmentServices.appointmentId, parsed.data.appointmentId))),
+    ]);
+    const existing = existingRows[0]; const branch = branchRows[0]; const employee = employeeRows[0];
+    if (!existing || !branch || !employee) return { status: "error", message: "La cita, sucursal o empleado ya no está disponible" };
+    if (["completed", "cancelled", "no_show"].includes(existing.status)) return { status: "error", message: "Esta cita ya no se puede mover" };
+    const startsAt = zonedDateTimeToUtc(parsed.data.date, parsed.data.time, branch.timezone ?? branch.companyTimezone);
+    const duration = existing.endsAt.getTime() - existing.startsAt.getTime(); const endsAt = new Date(startsAt.getTime() + duration);
+    const unavailableReason = await checkAppointmentAvailability({ companyId: parsed.data.companyId, branchId: parsed.data.branchId, employeeId: parsed.data.employeeId, date: parsed.data.date, time: parsed.data.time, startsAt, endsAt, serviceIds: serviceRows.map((row) => row.serviceId) });
+    if (unavailableReason) return { status: "error", message: unavailableReason };
+    await db.batch([
+      db.update(appointments).set({ employeeId: parsed.data.employeeId, startsAt, endsAt, updatedAt: new Date() }).where(and(eq(appointments.id, parsed.data.appointmentId), eq(appointments.companyId, parsed.data.companyId))),
+      db.insert(auditLogs).values({ companyId: parsed.data.companyId, actorUserId: operator.appUserId, action: "appointment.moved", entityType: "appointment", entityId: parsed.data.appointmentId, metadata: { branchId: parsed.data.branchId, employeeId: parsed.data.employeeId, startsAt: startsAt.toISOString() } }),
+    ]);
+    revalidateAppointmentRoutes(parsed.data.branchId); return { status: "success", message: "Cita movida" };
+  } catch (error) { console.error("[appointments:move] failed", { error: String(error) }); const overlap = String(error).includes("23P01"); return { status: "error", message: overlap ? "El empleado ya tiene una cita en ese horario" : "No fue posible mover la cita" }; }
 }
 
 function revalidateAppointmentRoutes(branchId: string) {

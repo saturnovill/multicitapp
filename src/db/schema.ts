@@ -112,12 +112,16 @@ export const companies = pgTable(
       .default("America/Hermosillo")
       .notNull(),
     currency: varchar("currency", { length: 3 }).default("MXN").notNull(),
+    appointmentIntervalMinutes: smallint("appointment_interval_minutes").default(15).notNull(),
+    bookingLeadMinutes: smallint("booking_lead_minutes").default(30).notNull(),
     status: companyStatusEnum("status").default("active").notNull(),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("companies_tenant_ref_uidx").on(table.id, table.slug),
     index("companies_status_idx").on(table.status),
+    check("companies_appointment_interval_chk", sql`${table.appointmentIntervalMinutes} in (5, 10, 15, 20, 30, 60)`),
+    check("companies_booking_lead_chk", sql`${table.bookingLeadMinutes} between 0 and 10080`),
   ],
 );
 
@@ -136,6 +140,21 @@ export const appUsers = pgTable(
   (table) => [
     index("app_users_email_idx").on(table.email),
     index("app_users_auth_user_idx").on(table.authUserId),
+  ],
+);
+
+export const authRateLimits = pgTable(
+  "auth_rate_limits",
+  {
+    keyHash: varchar("key_hash", { length: 64 }).primaryKey(),
+    attempts: smallint("attempts").default(0).notNull(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true }).defaultNow().notNull(),
+    blockedUntil: timestamp("blocked_until", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("auth_rate_limits_updated_idx").on(table.updatedAt),
+    check("auth_rate_limits_attempts_chk", sql`${table.attempts} >= 0`),
   ],
 );
 
@@ -315,7 +334,10 @@ export const services = pgTable(
     name: varchar("name", { length: 160 }).notNull(),
     description: text("description"),
     durationMinutes: integer("duration_minutes").notNull(),
+    preparationMinutes: smallint("preparation_minutes").default(0).notNull(),
+    cleanupMinutes: smallint("cleanup_minutes").default(0).notNull(),
     priceCents: integer("price_cents").notNull(),
+    taxBasisPoints: smallint("tax_basis_points").default(0).notNull(),
     currency: varchar("currency", { length: 3 }).default("MXN").notNull(),
     isPublic: boolean("is_public").default(true).notNull(),
     status: recordStatusEnum("status").default("active").notNull(),
@@ -331,7 +353,37 @@ export const services = pgTable(
       foreignColumns: [serviceCategories.companyId, serviceCategories.id],
     }).onDelete("set null"),
     check("services_duration_positive_chk", sql`${table.durationMinutes} > 0`),
+    check("services_buffer_minutes_chk", sql`${table.preparationMinutes} between 0 and 240 and ${table.cleanupMinutes} between 0 and 240`),
     check("services_price_nonnegative_chk", sql`${table.priceCents} >= 0`),
+    check("services_tax_rate_chk", sql`${table.taxBasisPoints} between 0 and 10000`),
+  ],
+);
+
+export const serviceBranches = pgTable(
+  "service_branches",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    serviceId: uuid("service_id").notNull(),
+    branchId: uuid("branch_id").notNull(),
+    isAvailable: boolean("is_available").default(true).notNull(),
+    priceOverrideCents: integer("price_override_cents"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("service_branches_service_branch_uidx").on(table.serviceId, table.branchId),
+    index("service_branches_company_branch_idx").on(table.companyId, table.branchId, table.isAvailable),
+    foreignKey({
+      name: "service_branches_service_tenant_fk",
+      columns: [table.companyId, table.serviceId],
+      foreignColumns: [services.companyId, services.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "service_branches_branch_tenant_fk",
+      columns: [table.companyId, table.branchId],
+      foreignColumns: [branches.companyId, branches.id],
+    }).onDelete("cascade"),
+    check("service_branches_price_chk", sql`${table.priceOverrideCents} is null or ${table.priceOverrideCents} >= 0`),
   ],
 );
 
