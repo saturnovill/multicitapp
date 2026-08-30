@@ -98,12 +98,12 @@ export async function AppointmentCalendarView({
       )
       .orderBy(asc(appointments.startsAt)),
     db
-      .select({ appointmentId: appointmentServices.appointmentId, serviceId: appointmentServices.serviceId })
+      .select({ appointmentId: appointmentServices.appointmentId, serviceId: appointmentServices.serviceId, serviceName: appointmentServices.serviceName })
       .from(appointmentServices)
       .innerJoin(appointments, and(eq(appointments.id, appointmentServices.appointmentId), eq(appointments.companyId, companyId)))
       .where(and(eq(appointments.companyId, companyId), eq(appointments.branchId, branch.id), sql`${appointments.startsAt} >= (${date}::date::timestamp at time zone ${timezone})`, sql`${appointments.startsAt} < ((${date}::date + interval '1 day')::timestamp at time zone ${timezone})`)),
     canManageAppointments
-      ? db.select({ id: customers.id, name: customers.name, phone: customers.phone }).from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name)).limit(500)
+      ? db.select({ id: customers.id, name: customers.name, phone: customers.phone, email: customers.email }).from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name)).limit(500)
       : Promise.resolve([]),
     canManageAppointments ? getEffectiveServices(companyId, branch.id) : Promise.resolve([]),
     db.select({ currency: companies.currency, appointmentIntervalMinutes: companies.appointmentIntervalMinutes }).from(companies).where(eq(companies.id, companyId)).limit(1),
@@ -118,9 +118,9 @@ export async function AppointmentCalendarView({
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${date}T12:00:00Z`));
-  const servicesByAppointment = new Map<string, string[]>();
+  const servicesByAppointment = new Map<string, { id: string; name: string }[]>();
   for (const row of appointmentServiceRows) {
-    servicesByAppointment.set(row.appointmentId, [...(servicesByAppointment.get(row.appointmentId) ?? []), row.serviceId]);
+    servicesByAppointment.set(row.appointmentId, [...(servicesByAppointment.get(row.appointmentId) ?? []), { id: row.serviceId, name: row.serviceName }]);
   }
 
   return (
@@ -158,7 +158,10 @@ export async function AppointmentCalendarView({
       {canManageAppointments ? <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-violet-100 bg-violet-50/60 px-4 py-3 text-xs text-violet-900"><span><strong>Clic en un espacio:</strong> crear cita con empleado y hora precargados</span><span><strong>Arrastrar una cita:</strong> cambiar empleado u horario</span><span><strong>Clic en una cita:</strong> editar detalles y estado</span></div> : null}
       <DailyCalendar
         employees={team}
-        appointments={dailyAppointments.map((appointment) => ({ ...appointment, startsAt: appointment.startsAt.toISOString(), endsAt: appointment.endsAt.toISOString(), serviceIds: servicesByAppointment.get(appointment.id) ?? [] }))}
+        appointments={dailyAppointments.map((appointment) => {
+          const appointmentServices = servicesByAppointment.get(appointment.id) ?? [];
+          return { ...appointment, startsAt: appointment.startsAt.toISOString(), endsAt: appointment.endsAt.toISOString(), serviceIds: appointmentServices.map((service) => service.id), serviceNames: appointmentServices.map((service) => service.name) };
+        })}
         timezone={timezone}
         companyId={companyId}
         branchId={branch.id}

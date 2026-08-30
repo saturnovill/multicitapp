@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarX2 } from "lucide-react";
 
@@ -14,7 +14,7 @@ type CalendarEmployee = {
   color: string;
 };
 
-type CalendarAppointment = EditableAppointment;
+type CalendarAppointment = EditableAppointment & { serviceNames: string[] };
 
 type DailyCalendarProps = {
   employees: CalendarEmployee[];
@@ -23,7 +23,7 @@ type DailyCalendarProps = {
   companyId: string;
   branchId: string;
   canManageAppointments: boolean;
-  customers: { id: string; name: string; phone: string | null }[];
+  customers: { id: string; name: string; phone: string | null; email: string | null }[];
   services: { id: string; name: string; durationMinutes: number; priceCents: number; currency: string }[];
   selectedDate: string;
   intervalMinutes: number;
@@ -77,6 +77,7 @@ export function DailyCalendar({
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
   const [createTarget, setCreateTarget] = useState<{ employeeId: string; time: string } | null>(null);
+  const suppressAppointmentClick = useRef(false);
   if (employees.length === 0) {
     return (
       <div className="grid min-h-96 place-items-center rounded-xl border border-dashed bg-white p-8 text-center">
@@ -146,7 +147,8 @@ export function DailyCalendar({
             <div
               key={employee.id}
               className={canManageAppointments ? "relative cursor-crosshair border-r last:border-r-0" : "relative border-r last:border-r-0"}
-              onDragOver={canManageAppointments ? (event) => event.preventDefault() : undefined}
+              onDragEnter={canManageAppointments ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } : undefined}
+              onDragOver={canManageAppointments ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } : undefined}
               onClick={canManageAppointments ? (event) => {
                 if ((event.target as HTMLElement).closest("button")) return;
                 const rect = event.currentTarget.getBoundingClientRect(); const rawMinute = START_HOUR * 60 + ((event.clientY - rect.top) / HOUR_HEIGHT) * 60; const minute = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - intervalMinutes, Math.round(rawMinute / intervalMinutes) * intervalMinutes));
@@ -158,7 +160,7 @@ export function DailyCalendar({
               aria-label={canManageAppointments ? `Agenda de ${employee.name}. Presiona Enter para crear una cita.` : `Agenda de ${employee.name}`}
               onDrop={canManageAppointments ? async (event) => {
                 event.preventDefault();
-                const appointmentId = event.dataTransfer.getData("text/appointment-id");
+                const appointmentId = event.dataTransfer.getData("application/x-multicitapp-appointment") || event.dataTransfer.getData("text/plain");
                 if (!appointmentId) return;
                 const rect = event.currentTarget.getBoundingClientRect();
                 const rawMinute = START_HOUR * 60 + ((event.clientY - rect.top) / HOUR_HEIGHT) * 60;
@@ -190,8 +192,9 @@ export function DailyCalendar({
                       key={appointment.id}
                       disabled={!canManageAppointments}
                       draggable={canManageAppointments && !["completed", "cancelled", "no_show"].includes(appointment.status)}
-                      onDragStart={(event) => { event.dataTransfer.setData("text/appointment-id", appointment.id); event.dataTransfer.effectAllowed = "move"; }}
-                      onClick={() => setSelectedAppointment(appointment)}
+                      onDragStart={(event) => { suppressAppointmentClick.current = true; event.dataTransfer.setData("application/x-multicitapp-appointment", appointment.id); event.dataTransfer.setData("text/plain", appointment.id); event.dataTransfer.effectAllowed = "move"; }}
+                      onDragEnd={() => { window.setTimeout(() => { suppressAppointmentClick.current = false; }, 0); }}
+                      onClick={() => { if (!suppressAppointmentClick.current) setSelectedAppointment(appointment); }}
                       className="absolute inset-x-2 overflow-hidden rounded-lg border-l-4 bg-violet-50 px-2.5 py-2 text-left text-violet-950 shadow-sm transition hover:bg-violet-100 disabled:cursor-default disabled:hover:bg-violet-50"
                       style={{
                         top,
@@ -210,6 +213,8 @@ export function DailyCalendar({
                         }).format(startsAt)}{" "}
                         · {statusLabel[appointment.status] ?? appointment.status}
                       </p>
+                      {appointment.serviceNames.length ? <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-tight text-violet-900">{appointment.serviceNames.join(" · ")}</p> : null}
+                      {appointment.notes ? <p className="mt-1 line-clamp-2 text-[11px] leading-tight text-violet-700/90">Nota: {appointment.notes}</p> : null}
                     </button>
                   );
                 },
