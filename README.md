@@ -26,6 +26,9 @@ La fundación técnica y el primer recorrido de identidad están implementados:
 - Confirmación pública con referencia y registro de origen en la agenda interna.
 - Punto de venta con conversión desde cita, pagos combinados, descuentos, impuestos, cambio y folios.
 - Recibos PDF, cancelaciones lógicas con auditoría y reportes exportables en CSV/PDF.
+- Caja por sucursal con apertura, movimientos, conciliación y cierre.
+- Gift cards con saldo transaccional, vencimiento, uso en ventas y devoluciones.
+- Comisiones configurables por empleado, servicio o categoría con aprobación y CSV.
 
 Las cuentas no se crean desde el login. El superadministrador registra cada
 empresa, genera las credenciales iniciales y asigna el rol correspondiente.

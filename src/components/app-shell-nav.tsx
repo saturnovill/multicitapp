@@ -11,6 +11,9 @@ import {
   Settings,
   ChartNoAxesCombined,
   ShoppingCart,
+  Landmark,
+  Gift,
+  Percent,
   UsersRound,
 } from "lucide-react";
 
@@ -21,6 +24,9 @@ const navigation = [
   { href: "/app", label: "Resumen", icon: LayoutDashboard },
   { href: "/app/clientes", label: "Clientes", icon: ContactRound },
   { href: "/app/ventas", label: "Ventas", icon: ShoppingCart },
+  { href: "/app/caja", label: "Caja", icon: Landmark },
+  { href: "/app/giftcards", label: "Gift cards", icon: Gift },
+  { href: "/app/comisiones", label: "Comisiones", icon: Percent },
   { href: "/app/reportes", label: "Reportes", icon: ChartNoAxesCombined },
   { href: "/app/empleados", label: "Empleados", icon: UsersRound },
   { href: "/app/servicios", label: "Servicios", icon: BriefcaseBusiness },

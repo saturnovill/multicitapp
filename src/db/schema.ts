@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -91,7 +92,14 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "cash",
   "card",
   "transfer",
+  "giftcard",
 ]);
+
+export const cashSessionStatusEnum = pgEnum("cash_session_status", ["open", "closed"]);
+export const cashMovementTypeEnum = pgEnum("cash_movement_type", ["sale", "income", "withdrawal", "refund", "adjustment"]);
+export const giftCardStatusEnum = pgEnum("gift_card_status", ["active", "depleted", "cancelled", "expired"]);
+export const giftCardMovementTypeEnum = pgEnum("gift_card_movement_type", ["issue", "redeem", "refund", "adjustment", "cancel"]);
+export const commissionRunStatusEnum = pgEnum("commission_run_status", ["draft", "approved"]);
 
 export const companies = pgTable(
   "companies",
@@ -550,6 +558,59 @@ export const appointmentServices = pgTable(
   ],
 );
 
+export const cashRegisterSessions = pgTable(
+  "cash_register_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    branchId: uuid("branch_id").notNull(),
+    openedByUserId: uuid("opened_by_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    closedByUserId: uuid("closed_by_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    status: cashSessionStatusEnum("status").default("open").notNull(),
+    openingBalanceCents: integer("opening_balance_cents").default(0).notNull(),
+    expectedCashCents: integer("expected_cash_cents"),
+    countedCashCents: integer("counted_cash_cents"),
+    differenceCents: integer("difference_cents"),
+    openingNotes: text("opening_notes"),
+    closingNotes: text("closing_notes"),
+    openedAt: timestamp("opened_at", { withTimezone: true }).defaultNow().notNull(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("cash_register_sessions_tenant_ref_uq").on(table.companyId, table.id),
+    uniqueIndex("cash_register_sessions_one_open_uidx").on(table.companyId, table.branchId).where(sql`${table.status} = 'open'`),
+    index("cash_register_sessions_branch_time_idx").on(table.companyId, table.branchId, table.openedAt),
+    foreignKey({ name: "cash_sessions_branch_tenant_fk", columns: [table.companyId, table.branchId], foreignColumns: [branches.companyId, branches.id] }).onDelete("restrict"),
+    check("cash_sessions_opening_nonnegative_chk", sql`${table.openingBalanceCents} >= 0`),
+  ],
+);
+
+export const giftCards = pgTable(
+  "gift_cards",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    customerId: uuid("customer_id"),
+    createdByUserId: uuid("created_by_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    code: varchar("code", { length: 40 }).notNull(),
+    initialBalanceCents: integer("initial_balance_cents").notNull(),
+    balanceCents: integer("balance_cents").notNull(),
+    currency: varchar("currency", { length: 3 }).default("MXN").notNull(),
+    status: giftCardStatusEnum("status").default("active").notNull(),
+    expiresOn: date("expires_on"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("gift_cards_company_code_uidx").on(table.companyId, table.code),
+    unique("gift_cards_tenant_ref_uq").on(table.companyId, table.id),
+    index("gift_cards_company_status_idx").on(table.companyId, table.status),
+    foreignKey({ name: "gift_cards_customer_tenant_fk", columns: [table.companyId, table.customerId], foreignColumns: [customers.companyId, customers.id] }).onDelete("restrict"),
+    check("gift_cards_balances_chk", sql`${table.initialBalanceCents} > 0 and ${table.balanceCents} >= 0`),
+  ],
+);
+
 export const sales = pgTable(
   "sales",
   {
@@ -558,6 +619,7 @@ export const sales = pgTable(
     branchId: uuid("branch_id").notNull(),
     customerId: uuid("customer_id"),
     appointmentId: uuid("appointment_id"),
+    cashSessionId: uuid("cash_session_id"),
     createdByUserId: uuid("created_by_user_id").references(() => appUsers.id, {
       onDelete: "set null",
     }),
@@ -601,6 +663,11 @@ export const sales = pgTable(
       columns: [table.companyId, table.appointmentId],
       foreignColumns: [appointments.companyId, appointments.id],
     }).onDelete("restrict"),
+    foreignKey({
+      name: "sales_cash_session_tenant_fk",
+      columns: [table.companyId, table.cashSessionId],
+      foreignColumns: [cashRegisterSessions.companyId, cashRegisterSessions.id],
+    }).onDelete("restrict"),
     check("sales_amounts_chk", sql`${table.subtotalCents} >= 0 and ${table.discountCents} >= 0 and ${table.taxCents} >= 0 and ${table.totalCents} >= 0 and ${table.paidCents} >= 0 and ${table.changeCents} >= 0`),
   ],
 );
@@ -622,6 +689,7 @@ export const saleItems = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    unique("sale_items_tenant_ref_uq").on(table.companyId, table.id),
     index("sale_items_sale_idx").on(table.companyId, table.saleId),
     index("sale_items_employee_idx").on(table.companyId, table.employeeId),
     foreignKey({
@@ -651,6 +719,7 @@ export const salePayments = pgTable(
     companyId: uuid("company_id").notNull(),
     saleId: uuid("sale_id").notNull(),
     method: paymentMethodEnum("method").notNull(),
+    giftCardId: uuid("gift_card_id"),
     amountCents: integer("amount_cents").notNull(),
     reference: varchar("reference", { length: 160 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -663,7 +732,150 @@ export const salePayments = pgTable(
       columns: [table.companyId, table.saleId],
       foreignColumns: [sales.companyId, sales.id],
     }).onDelete("cascade"),
+    foreignKey({ name: "sale_payments_gift_card_tenant_fk", columns: [table.companyId, table.giftCardId], foreignColumns: [giftCards.companyId, giftCards.id] }).onDelete("restrict"),
+    check("sale_payments_gift_card_chk", sql`(${table.method}::text = 'giftcard' and ${table.giftCardId} is not null) or (${table.method}::text <> 'giftcard' and ${table.giftCardId} is null)`),
     check("sale_payments_amount_positive_chk", sql`${table.amountCents} > 0`),
+  ],
+);
+
+export const cashMovements = pgTable(
+  "cash_movements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    sessionId: uuid("session_id").notNull(),
+    saleId: uuid("sale_id"),
+    actorUserId: uuid("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    type: cashMovementTypeEnum("type").notNull(),
+    method: paymentMethodEnum("method").default("cash").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    category: varchar("category", { length: 100 }),
+    reason: text("reason"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("cash_movements_session_time_idx").on(table.companyId, table.sessionId, table.occurredAt),
+    foreignKey({ name: "cash_movements_session_tenant_fk", columns: [table.companyId, table.sessionId], foreignColumns: [cashRegisterSessions.companyId, cashRegisterSessions.id] }).onDelete("restrict"),
+    foreignKey({ name: "cash_movements_sale_tenant_fk", columns: [table.companyId, table.saleId], foreignColumns: [sales.companyId, sales.id] }).onDelete("restrict"),
+    check("cash_movements_amount_positive_chk", sql`${table.amountCents} > 0`),
+  ],
+);
+
+export const giftCardMovements = pgTable(
+  "gift_card_movements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    giftCardId: uuid("gift_card_id").notNull(),
+    saleId: uuid("sale_id"),
+    actorUserId: uuid("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    type: giftCardMovementTypeEnum("type").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    balanceAfterCents: integer("balance_after_cents").notNull(),
+    notes: text("notes"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("gift_card_movements_card_time_idx").on(table.companyId, table.giftCardId, table.occurredAt),
+    foreignKey({ name: "gift_card_movements_card_tenant_fk", columns: [table.companyId, table.giftCardId], foreignColumns: [giftCards.companyId, giftCards.id] }).onDelete("restrict"),
+    foreignKey({ name: "gift_card_movements_sale_tenant_fk", columns: [table.companyId, table.saleId], foreignColumns: [sales.companyId, sales.id] }).onDelete("restrict"),
+    check("gift_card_movements_balance_chk", sql`${table.balanceAfterCents} >= 0`),
+    check("gift_card_movements_amount_nonzero_chk", sql`${table.amountCents} <> 0`),
+  ],
+);
+
+export const commissionRules = pgTable(
+  "commission_rules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    employeeId: uuid("employee_id"),
+    serviceId: uuid("service_id"),
+    categoryId: uuid("category_id"),
+    name: varchar("name", { length: 160 }).notNull(),
+    rateBasisPoints: integer("rate_basis_points").default(0).notNull(),
+    fixedCents: integer("fixed_cents").default(0).notNull(),
+    priority: integer("priority").default(0).notNull(),
+    status: recordStatusEnum("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("commission_rules_tenant_ref_uq").on(table.companyId, table.id),
+    index("commission_rules_lookup_idx").on(table.companyId, table.status, table.priority),
+    foreignKey({ name: "commission_rules_employee_tenant_fk", columns: [table.companyId, table.employeeId], foreignColumns: [employees.companyId, employees.id] }).onDelete("cascade"),
+    foreignKey({ name: "commission_rules_service_tenant_fk", columns: [table.companyId, table.serviceId], foreignColumns: [services.companyId, services.id] }).onDelete("cascade"),
+    foreignKey({ name: "commission_rules_category_tenant_fk", columns: [table.companyId, table.categoryId], foreignColumns: [serviceCategories.companyId, serviceCategories.id] }).onDelete("cascade"),
+    check("commission_rules_values_chk", sql`${table.rateBasisPoints} between 0 and 10000 and ${table.fixedCents} >= 0 and (${table.rateBasisPoints} > 0 or ${table.fixedCents} > 0)`),
+  ],
+);
+
+export const commissionRuns = pgTable(
+  "commission_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    branchId: uuid("branch_id"),
+    createdByUserId: uuid("created_by_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    approvedByUserId: uuid("approved_by_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    status: commissionRunStatusEnum("status").default("draft").notNull(),
+    periodFrom: date("period_from").notNull(),
+    periodTo: date("period_to").notNull(),
+    totalCents: integer("total_cents").default(0).notNull(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("commission_runs_tenant_ref_uq").on(table.companyId, table.id),
+    index("commission_runs_period_idx").on(table.companyId, table.periodFrom, table.periodTo),
+    foreignKey({ name: "commission_runs_branch_tenant_fk", columns: [table.companyId, table.branchId], foreignColumns: [branches.companyId, branches.id] }).onDelete("restrict"),
+    check("commission_runs_period_chk", sql`${table.periodFrom} <= ${table.periodTo}`),
+    check("commission_runs_total_nonnegative_chk", sql`${table.totalCents} >= 0`),
+  ],
+);
+
+export const commissionEntries = pgTable(
+  "commission_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    runId: uuid("run_id").notNull(),
+    employeeId: uuid("employee_id").notNull(),
+    saleId: uuid("sale_id").notNull(),
+    saleItemId: uuid("sale_item_id").notNull(),
+    ruleId: uuid("rule_id").notNull(),
+    baseCents: integer("base_cents").notNull(),
+    commissionCents: integer("commission_cents").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("commission_entries_run_item_uidx").on(table.runId, table.saleItemId),
+    index("commission_entries_employee_idx").on(table.companyId, table.runId, table.employeeId),
+    foreignKey({ name: "commission_entries_run_tenant_fk", columns: [table.companyId, table.runId], foreignColumns: [commissionRuns.companyId, commissionRuns.id] }).onDelete("cascade"),
+    foreignKey({ name: "commission_entries_employee_tenant_fk", columns: [table.companyId, table.employeeId], foreignColumns: [employees.companyId, employees.id] }).onDelete("restrict"),
+    foreignKey({ name: "commission_entries_sale_tenant_fk", columns: [table.companyId, table.saleId], foreignColumns: [sales.companyId, sales.id] }).onDelete("restrict"),
+    foreignKey({ name: "commission_entries_sale_item_tenant_fk", columns: [table.companyId, table.saleItemId], foreignColumns: [saleItems.companyId, saleItems.id] }).onDelete("restrict"),
+    foreignKey({ name: "commission_entries_rule_tenant_fk", columns: [table.companyId, table.ruleId], foreignColumns: [commissionRules.companyId, commissionRules.id] }).onDelete("restrict"),
+    check("commission_entries_amounts_chk", sql`${table.baseCents} >= 0 and ${table.commissionCents} >= 0`),
+  ],
+);
+
+export const commissionAdjustments = pgTable(
+  "commission_adjustments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    runId: uuid("run_id").notNull(),
+    employeeId: uuid("employee_id").notNull(),
+    actorUserId: uuid("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    amountCents: integer("amount_cents").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("commission_adjustments_run_idx").on(table.companyId, table.runId),
+    foreignKey({ name: "commission_adjustments_run_tenant_fk", columns: [table.companyId, table.runId], foreignColumns: [commissionRuns.companyId, commissionRuns.id] }).onDelete("cascade"),
+    foreignKey({ name: "commission_adjustments_employee_tenant_fk", columns: [table.companyId, table.employeeId], foreignColumns: [employees.companyId, employees.id] }).onDelete("restrict"),
+    check("commission_adjustments_nonzero_chk", sql`${table.amountCents} <> 0`),
   ],
 );
 

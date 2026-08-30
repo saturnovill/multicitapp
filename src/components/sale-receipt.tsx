@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { getSaleDetail } from "@/lib/sales-data";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getSaleDetail>>>;
-const paymentLabels = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" } as const;
+const paymentLabels = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", giftcard: "Gift card" } as const;
 
 export function SaleReceipt({ detail }: { detail: Detail }) {
   const { sale, items, payments } = detail;

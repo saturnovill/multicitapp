@@ -174,25 +174,25 @@ Una tarea se considera terminada cuando:
 
 - [x] Efectivo, tarjeta, transferencia y pago combinado.
 - [x] Validar que la suma de pagos cubra el total y limitar el cambio a efectivo.
-- [ ] Registrar devoluciones mediante movimientos compensatorios.
+- [x] Registrar devoluciones mediante movimientos compensatorios.
 
 ### T-503 Caja
 
-- [ ] Apertura, fondo inicial, ingresos, retiros y cierre.
-- [ ] Conciliación por método de pago.
-- [ ] Historial de diferencias y responsables.
+- [x] Apertura, fondo inicial, ingresos, retiros y cierre.
+- [x] Conciliación por método de pago.
+- [x] Historial de diferencias y responsables.
 
 ### T-504 Giftcards
 
-- [ ] Emisión con código único, saldo y vencimiento.
-- [ ] Cargos parciales y devoluciones transaccionales.
-- [ ] Historial inalterable de movimientos.
+- [x] Emisión con código único, saldo y vencimiento.
+- [x] Cargos parciales y devoluciones transaccionales.
+- [x] Historial inalterable de movimientos.
 
 ### T-505 Comisiones
 
-- [ ] Reglas por empleado, servicio o categoría.
-- [ ] Cálculo por periodo basado en ventas cobradas.
-- [ ] Ajustes autorizados y reporte descargable.
+- [x] Reglas por empleado, servicio o categoría.
+- [x] Cálculo por periodo basado en ventas cobradas.
+- [x] Ajustes autorizados y reporte descargable.
 
 ## Entrega 6 — Calidad y liberación
 

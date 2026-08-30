@@ -76,7 +76,7 @@ export async function getReportData(filters: ReportFilters) {
   const branchMap = new Map<string, { name: string; companyName: string; sales: number; totalCents: number }>();
   for (const sale of activeSales) { const row = branchMap.get(sale.branchId) ?? { name: sale.branchName, companyName: sale.companyName, sales: 0, totalCents: 0 }; row.sales += 1; row.totalCents += sale.totalCents; branchMap.set(sale.branchId, row); }
   const appointmentStatuses = Object.fromEntries(["pending", "confirmed", "waiting", "in_service", "completed", "cancelled", "no_show"].map((status) => [status, appointmentRows.filter((row) => row.status === status).length]));
-  const paymentMethods = Object.fromEntries(["cash", "card", "transfer"].map((method) => [method, paymentRows.filter((row) => row.method === method).reduce((sum, row) => sum + row.amountCents, 0)]));
+  const paymentMethods = Object.fromEntries(["cash", "card", "transfer", "giftcard"].map((method) => [method, paymentRows.filter((row) => row.method === method).reduce((sum, row) => sum + row.amountCents, 0)]));
   const currencies = new Set(activeSales.map((row) => row.currency));
   const currency = activeSales[0]?.currency ?? "MXN";
   return {

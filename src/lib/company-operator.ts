@@ -68,3 +68,10 @@ export function canManageAppointments(operator: CompanyOperator) {
 export function canManageSales(operator: CompanyOperator) {
   return operator.isPlatformAdmin || ["owner", "admin", "manager", "receptionist"].includes(operator.role ?? "");
 }
+
+export const canOperateCash = canManageSales;
+export const canManageGiftCards = canManageSales;
+
+export function canManageCommissions(operator: CompanyOperator) {
+  return operator.isPlatformAdmin || ["owner", "admin", "manager"].includes(operator.role ?? "");
+}

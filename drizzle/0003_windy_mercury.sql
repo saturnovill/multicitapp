@@ -1,0 +1,2 @@
+ALTER TABLE "sale_payments" DROP CONSTRAINT "sale_payments_gift_card_chk";--> statement-breakpoint
+ALTER TABLE "sale_payments" ADD CONSTRAINT "sale_payments_gift_card_chk" CHECK (("sale_payments"."method"::text = 'giftcard' and "sale_payments"."gift_card_id" is not null) or ("sale_payments"."method"::text <> 'giftcard' and "sale_payments"."gift_card_id" is null));

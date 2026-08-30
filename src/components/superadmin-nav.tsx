@@ -16,6 +16,9 @@ import {
   ContactRound,
   ChartNoAxesCombined,
   ShoppingCart,
+  Landmark,
+  Gift,
+  Percent,
 } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
@@ -36,6 +39,9 @@ const navigation = [
   { href: "/app/admin/empleados", label: "Empleados", icon: UsersRound },
   { href: "/app/admin/clientes", label: "Clientes", icon: ContactRound },
   { href: "/app/admin/ventas", label: "Ventas", icon: ShoppingCart },
+  { href: "/app/admin/caja", label: "Caja", icon: Landmark },
+  { href: "/app/admin/giftcards", label: "Gift cards", icon: Gift },
+  { href: "/app/admin/comisiones", label: "Comisiones", icon: Percent },
   { href: "/app/admin/reportes", label: "Reportes", icon: ChartNoAxesCombined },
   { href: "/app/admin/empresas", label: "Empresas", icon: Building2 },
   { href: "/app/admin/usuarios", label: "Usuarios", icon: UsersRound },

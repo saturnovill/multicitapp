@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sal
     if (!detail) return NextResponse.json({ message: "Venta no encontrada" }, { status: 404 });
     const { sale, items, payments } = detail;
     const money = (cents: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: sale.currency }).format(cents / 100);
-    const method = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" } as const;
+    const method = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", giftcard: "Gift card" } as const;
     const bytes = await createTextPdf(`Recibo ${sale.folio}`, [
       { text: sale.companyName, bold: true, size: 13 },
       { text: `${sale.branchName} | ${new Intl.DateTimeFormat("es-MX", { dateStyle: "long", timeStyle: "short" }).format(sale.createdAt)}` },
