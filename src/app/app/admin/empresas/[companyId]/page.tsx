@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { and, asc, count, desc, eq, gte } from "drizzle-orm";
-import { ArrowLeft, BriefcaseBusiness, CalendarDays, ContactRound, MapPin, UsersRound } from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, CalendarDays, ContactRound, MapPin, Settings, UsersRound } from "lucide-react";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
@@ -68,7 +68,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
         eyebrow="Detalle de empresa"
         title={company.name}
         description={`${company.slug} · ${company.timezone} · ${company.currency}`}
-        action={<Button asChild variant="outline"><Link href="/app/admin/empresas"><ArrowLeft /> Volver a empresas</Link></Button>}
+        action={<div className="flex flex-wrap gap-2"><Button asChild><Link href={`/app/admin/empresas/${companyId}/configuracion`}><Settings /> Configurar</Link></Button><Button asChild variant="outline"><Link href="/app/admin/empresas"><ArrowLeft /> Volver a empresas</Link></Button></div>}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Métricas de la empresa">

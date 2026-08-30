@@ -31,6 +31,7 @@ const scheduleSchema = z.object({
 });
 
 const exceptionSchema = z.object({ companyId: z.uuid(), employeeId: z.uuid(), branchId: z.uuid(), type: z.enum(["absence", "break", "blocked"]), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), reason: z.string().trim().max(500) });
+const deleteExceptionSchema = z.object({ companyId: z.uuid(), employeeId: z.uuid(), exceptionId: z.uuid() });
 
 function employeePayload(formData: FormData) {
   return employeeSchema.safeParse({
@@ -141,6 +142,65 @@ export async function createEmployeeExceptionAction(_state: EmployeeActionState,
   } catch (error) {
     console.error("[employees:exception] failed", { error: String(error) });
     return { status: "error", message: "No fue posible guardar el bloqueo" };
+  }
+}
+
+export async function deleteEmployeeExceptionAction(_state: EmployeeActionState, formData: FormData): Promise<EmployeeActionState> {
+  try {
+    const parsed = deleteExceptionSchema.safeParse({
+      companyId: formData.get("companyId"),
+      employeeId: formData.get("employeeId"),
+      exceptionId: formData.get("exceptionId"),
+    });
+    if (!parsed.success) return { status: "error", message: "El bloqueo no es válido" };
+
+    const operator = await requireCompanyOperator(parsed.data.companyId);
+    if (!canManageCatalogs(operator)) return { status: "error", message: "No tienes permiso para administrar bloqueos" };
+
+    const db = getDb();
+    const [exception] = await db
+      .select({
+        id: scheduleExceptions.id,
+        branchId: scheduleExceptions.branchId,
+        type: scheduleExceptions.type,
+        startsAt: scheduleExceptions.startsAt,
+        endsAt: scheduleExceptions.endsAt,
+      })
+      .from(scheduleExceptions)
+      .where(and(
+        eq(scheduleExceptions.id, parsed.data.exceptionId),
+        eq(scheduleExceptions.companyId, parsed.data.companyId),
+        eq(scheduleExceptions.employeeId, parsed.data.employeeId),
+      ))
+      .limit(1);
+    if (!exception) return { status: "error", message: "El bloqueo ya no existe" };
+
+    await db.batch([
+      db.delete(scheduleExceptions).where(and(
+        eq(scheduleExceptions.id, parsed.data.exceptionId),
+        eq(scheduleExceptions.companyId, parsed.data.companyId),
+        eq(scheduleExceptions.employeeId, parsed.data.employeeId),
+      )),
+      db.insert(auditLogs).values({
+        companyId: parsed.data.companyId,
+        actorUserId: operator.appUserId,
+        action: "employee.exception.deleted",
+        entityType: "schedule_exception",
+        entityId: exception.id,
+        metadata: {
+          employeeId: parsed.data.employeeId,
+          branchId: exception.branchId,
+          type: exception.type,
+          startsAt: exception.startsAt.toISOString(),
+          endsAt: exception.endsAt.toISOString(),
+        },
+      }),
+    ]);
+    revalidateEmployeeRoutes(parsed.data.employeeId);
+    return { status: "success", message: "Bloqueo eliminado" };
+  } catch (error) {
+    console.error("[employees:exception:delete] failed", { error: String(error) });
+    return { status: "error", message: "No fue posible eliminar el bloqueo" };
   }
 }
 
