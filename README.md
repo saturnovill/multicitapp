@@ -22,6 +22,8 @@ La fundación técnica y el primer recorrido de identidad están implementados:
 - Selector de sucursal para superadministradores y gerentes.
 - Catálogo básico de servicios y alta de citas con cliente nuevo o existente.
 - Restricción PostgreSQL que impide citas solapadas para un empleado.
+- Reservación pública por empresa con sucursal, servicios, profesional y horarios reales disponibles.
+- Confirmación pública con referencia y registro de origen en la agenda interna.
 
 Las cuentas no se crean desde el login. El superadministrador registra cada
 empresa, genera las credenciales iniciales y asigna el rol correspondiente.

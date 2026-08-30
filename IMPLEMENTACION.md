@@ -115,9 +115,9 @@ Una tarea se considera terminada cuando:
 
 ### T-301 Motor de disponibilidad
 
-- [ ] Calcular disponibilidad por sucursal, empleado, servicio y fecha.
-- [ ] Considerar horarios, excepciones, bloqueos y duración total.
-- [ ] Validar nuevamente dentro de una transacción al guardar.
+- [x] Calcular disponibilidad por sucursal, empleado, servicio y fecha.
+- [x] Considerar horarios, excepciones, bloqueos y duración total.
+- [x] Validar nuevamente dentro de una transacción al guardar.
 - [x] Implementar una restricción de base de datos contra traslapes.
 - [ ] Añadir pruebas de concurrencia para reservas simultáneas.
 
@@ -148,15 +148,15 @@ Una tarea se considera terminada cuando:
 
 ### T-401 Página pública por empresa
 
-- [ ] Ruta pública identificada por slug de empresa.
-- [ ] Selección de sucursal, servicios y empleado.
-- [ ] Opción de primera persona disponible.
-- [ ] Captura y validación de contacto.
+- [x] Ruta pública identificada por slug de empresa.
+- [x] Selección de sucursal, servicios y empleado.
+- [x] Opción de primera persona disponible.
+- [x] Captura y validación de contacto.
 
 ### T-402 Confirmación y notificaciones
 
-- [ ] Mostrar resumen y políticas antes de confirmar.
-- [ ] Crear la cita con origen público.
+- [x] Mostrar resumen y consentimiento antes de confirmar.
+- [x] Crear la cita con origen público.
 - [ ] Enviar confirmación por correo.
 - [ ] Preparar adaptadores para SMS o WhatsApp futuros.
 
