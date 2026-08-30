@@ -198,7 +198,7 @@ Una tarea se considera terminada cuando:
 
 ### T-601 Panel y reportes
 
-- [x] Indicadores de citas, horas reservadas y ventas.
+- [x] Indicadores de citas, ocupación contra capacidad programada y ventas.
 - [x] Reportes por empresa, sucursal, empleado, servicio y periodo.
 - [x] Exportaciones CSV y PDF prioritarias.
 

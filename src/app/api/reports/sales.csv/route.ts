@@ -29,6 +29,8 @@ export async function GET(request: Request) {
     ["Resumen", "Ticket promedio", report.totals.averageTicketCents / 100],
     ["Resumen", "Citas", report.totals.appointments],
     ["Resumen", "Horas reservadas", Math.round(report.totals.appointmentMinutes / 6) / 10],
+    ["Resumen", "Horas disponibles", Math.round(report.totals.capacityMinutes / 6) / 10],
+    ["Resumen", "Ocupacion de agenda (%)", report.totals.occupancyPercent],
     ...report.topServices.map((row) => ["Servicio", row.name, `${row.quantity} | ${row.totalCents / 100}`]),
     ...report.topEmployees.map((row) => ["Empleado", row.name, `${row.quantity} | ${row.totalCents / 100}`]),
     ...report.branches.map((row) => ["Sucursal", `${row.companyName} - ${row.name}`, `${row.sales} | ${row.totalCents / 100}`]),
