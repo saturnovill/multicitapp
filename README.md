@@ -17,13 +17,15 @@ La fundación técnica y el primer recorrido de identidad están implementados:
 - Portada e inicio/cierre de sesión con Neon Auth.
 - Registro público deshabilitado tanto en Neon como en la aplicación.
 - Panel exclusivo de superadministración para crear empresas y usuarios.
-- Esquema multiempresa de 16 tablas con claves compuestas de aislamiento.
+- Esquema multiempresa con claves compuestas de aislamiento y ventas transaccionales.
 - Agenda diaria con una columna por empleado y navegación por fecha.
 - Selector de sucursal para superadministradores y gerentes.
 - Catálogo básico de servicios y alta de citas con cliente nuevo o existente.
 - Restricción PostgreSQL que impide citas solapadas para un empleado.
 - Reservación pública por empresa con sucursal, servicios, profesional y horarios reales disponibles.
 - Confirmación pública con referencia y registro de origen en la agenda interna.
+- Punto de venta con conversión desde cita, pagos combinados, descuentos, impuestos, cambio y folios.
+- Recibos PDF, cancelaciones lógicas con auditoría y reportes exportables en CSV/PDF.
 
 Las cuentas no se crean desde el login. El superadministrador registra cada
 empresa, genera las credenciales iniciales y asigna el rol correspondiente.

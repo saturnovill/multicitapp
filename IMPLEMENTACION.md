@@ -164,16 +164,16 @@ Una tarea se considera terminada cuando:
 
 ### T-501 Ventas
 
-- [ ] Crear venta manual o desde una cita.
-- [ ] Asignar empleado por concepto.
-- [ ] Calcular subtotal, impuestos, descuentos, total y cambio.
-- [ ] Generar folio y comprobante PDF.
-- [ ] Implementar cancelaciones con trazabilidad.
+- [x] Crear venta manual o desde una cita.
+- [x] Asignar empleado por concepto.
+- [x] Calcular subtotal, impuestos, descuentos, total y cambio.
+- [x] Generar folio y comprobante PDF.
+- [x] Implementar cancelaciones con trazabilidad.
 
 ### T-502 Pagos
 
-- [ ] Efectivo, tarjeta, transferencia y pago combinado.
-- [ ] Validar que la suma de pagos coincida con el total.
+- [x] Efectivo, tarjeta, transferencia y pago combinado.
+- [x] Validar que la suma de pagos cubra el total y limitar el cambio a efectivo.
 - [ ] Registrar devoluciones mediante movimientos compensatorios.
 
 ### T-503 Caja
@@ -198,9 +198,9 @@ Una tarea se considera terminada cuando:
 
 ### T-601 Panel y reportes
 
-- [ ] Indicadores de citas, ocupación, ventas y caja.
-- [ ] Reportes por empresa, sucursal, empleado, servicio y periodo.
-- [ ] Exportaciones CSV y PDF prioritarias.
+- [x] Indicadores de citas, horas reservadas y ventas.
+- [x] Reportes por empresa, sucursal, empleado, servicio y periodo.
+- [x] Exportaciones CSV y PDF prioritarias.
 
 ### T-602 Seguridad y rendimiento
 

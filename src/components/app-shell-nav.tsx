@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   MapPin,
   Settings,
+  ChartNoAxesCombined,
+  ShoppingCart,
   UsersRound,
 } from "lucide-react";
 
@@ -18,6 +20,8 @@ const navigation = [
   { href: "/app/citas", label: "Citas", icon: CalendarDays },
   { href: "/app", label: "Resumen", icon: LayoutDashboard },
   { href: "/app/clientes", label: "Clientes", icon: ContactRound },
+  { href: "/app/ventas", label: "Ventas", icon: ShoppingCart },
+  { href: "/app/reportes", label: "Reportes", icon: ChartNoAxesCombined },
   { href: "/app/empleados", label: "Empleados", icon: UsersRound },
   { href: "/app/servicios", label: "Servicios", icon: BriefcaseBusiness },
   { href: "/app/sucursales", label: "Sucursales", icon: MapPin },

@@ -1,0 +1,24 @@
+import Link from "next/link";
+import { Download, Printer } from "lucide-react";
+
+import { CancelSaleForm } from "@/components/cancel-sale-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { getSaleDetail } from "@/lib/sales-data";
+
+type Detail = NonNullable<Awaited<ReturnType<typeof getSaleDetail>>>;
+const paymentLabels = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" } as const;
+
+export function SaleReceipt({ detail }: { detail: Detail }) {
+  const { sale, items, payments } = detail;
+  const money = (cents: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: sale.currency }).format(cents / 100);
+  return <div className="mx-auto max-w-4xl space-y-6">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-3"><h1 className="text-3xl font-semibold tracking-tight">{sale.folio}</h1><Badge variant={sale.status === "cancelled" ? "outline" : "secondary"}>{sale.status === "cancelled" ? "Cancelada" : "Completada"}</Badge></div><p className="mt-2 text-sm text-muted-foreground">{sale.companyName} · {sale.branchName} · {new Intl.DateTimeFormat("es-MX", { dateStyle: "long", timeStyle: "short" }).format(sale.createdAt)}</p></div><div className="flex gap-2"><Button variant="outline" asChild><Link href={`/api/sales/${sale.id}/receipt`} target="_blank"><Download />PDF</Link></Button><Button variant="outline" asChild><Link href={`/api/sales/${sale.id}/receipt?print=1`} target="_blank"><Printer />Imprimir</Link></Button></div></div>
+    {sale.status === "cancelled" ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong>Venta cancelada.</strong> {sale.cancellationReason}{sale.cancelledAt ? ` · ${new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(sale.cancelledAt)}` : ""}</div> : null}
+    <Card><CardHeader><CardTitle>Detalle de la venta</CardTitle></CardHeader><CardContent className="space-y-5"><div className="grid gap-4 rounded-xl bg-stone-50 p-4 sm:grid-cols-3"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Cliente</p><p className="mt-1 font-medium">{sale.customerName ?? "Público general"}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Cita</p><p className="mt-1 font-medium">{sale.appointmentId ? "Convertida desde cita" : "Venta directa"}</p></div><div><p className="text-xs uppercase tracking-wide text-muted-foreground">Sucursal</p><p className="mt-1 font-medium">{sale.branchName}</p></div></div><Table><TableHeader><TableRow><TableHead>Servicio</TableHead><TableHead>Empleado</TableHead><TableHead className="text-center">Cant.</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Importe</TableHead></TableRow></TableHeader><TableBody>{items.map((item) => <TableRow key={item.id}><TableCell><span className="font-medium">{item.serviceName}</span><span className="block text-xs text-muted-foreground">{item.serviceCode}</span></TableCell><TableCell>{item.employeeName}</TableCell><TableCell className="text-center">{item.quantity}</TableCell><TableCell className="text-right">{money(item.unitPriceCents)}</TableCell><TableCell className="text-right font-medium">{money(item.lineTotalCents)}</TableCell></TableRow>)}</TableBody></Table><div className="ml-auto w-full max-w-sm space-y-2 border-t pt-4 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>{money(sale.subtotalCents)}</span></div><div className="flex justify-between"><span>Descuento</span><span>-{money(sale.discountCents)}</span></div><div className="flex justify-between"><span>Impuestos</span><span>{money(sale.taxCents)}</span></div><div className="flex justify-between text-lg font-semibold"><span>Total</span><span>{money(sale.totalCents)}</span></div><div className="flex justify-between"><span>Pagado</span><span>{money(sale.paidCents)}</span></div><div className="flex justify-between"><span>Cambio</span><span>{money(sale.changeCents)}</span></div></div>{sale.notes ? <p className="rounded-lg bg-stone-50 p-3 text-sm"><strong>Notas:</strong> {sale.notes}</p> : null}</CardContent></Card>
+    <Card><CardHeader><CardTitle>Pagos</CardTitle></CardHeader><CardContent className="space-y-2">{payments.map((payment) => <div key={payment.id} className="flex justify-between rounded-lg border px-3 py-2 text-sm"><span>{paymentLabels[payment.method]}{payment.reference ? ` · ${payment.reference}` : ""}</span><strong>{money(payment.amountCents)}</strong></div>)}</CardContent></Card>
+    {sale.status === "completed" ? <CancelSaleForm saleId={sale.id} companyId={sale.companyId} /> : null}
+  </div>;
+}

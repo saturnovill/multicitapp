@@ -85,6 +85,14 @@ export const appointmentSourceEnum = pgEnum("appointment_source", [
   "integration",
 ]);
 
+export const saleStatusEnum = pgEnum("sale_status", ["completed", "cancelled"]);
+
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "cash",
+  "card",
+  "transfer",
+]);
+
 export const companies = pgTable(
   "companies",
   {
@@ -542,6 +550,123 @@ export const appointmentServices = pgTable(
   ],
 );
 
+export const sales = pgTable(
+  "sales",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    branchId: uuid("branch_id").notNull(),
+    customerId: uuid("customer_id"),
+    appointmentId: uuid("appointment_id"),
+    createdByUserId: uuid("created_by_user_id").references(() => appUsers.id, {
+      onDelete: "set null",
+    }),
+    folio: varchar("folio", { length: 40 }).notNull(),
+    status: saleStatusEnum("status").default("completed").notNull(),
+    subtotalCents: integer("subtotal_cents").notNull(),
+    discountCents: integer("discount_cents").default(0).notNull(),
+    taxCents: integer("tax_cents").default(0).notNull(),
+    totalCents: integer("total_cents").notNull(),
+    paidCents: integer("paid_cents").notNull(),
+    changeCents: integer("change_cents").default(0).notNull(),
+    currency: varchar("currency", { length: 3 }).default("MXN").notNull(),
+    notes: text("notes"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledByUserId: uuid("cancelled_by_user_id").references(() => appUsers.id, {
+      onDelete: "set null",
+    }),
+    cancellationReason: text("cancellation_reason"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("sales_company_folio_uidx").on(table.companyId, table.folio),
+    uniqueIndex("sales_company_appointment_uidx")
+      .on(table.companyId, table.appointmentId)
+      .where(sql`${table.appointmentId} is not null`),
+    unique("sales_tenant_ref_uq").on(table.companyId, table.id),
+    index("sales_company_time_idx").on(table.companyId, table.createdAt),
+    index("sales_branch_time_idx").on(table.companyId, table.branchId, table.createdAt),
+    foreignKey({
+      name: "sales_branch_tenant_fk",
+      columns: [table.companyId, table.branchId],
+      foreignColumns: [branches.companyId, branches.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "sales_customer_tenant_fk",
+      columns: [table.companyId, table.customerId],
+      foreignColumns: [customers.companyId, customers.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "sales_appointment_tenant_fk",
+      columns: [table.companyId, table.appointmentId],
+      foreignColumns: [appointments.companyId, appointments.id],
+    }).onDelete("restrict"),
+    check("sales_amounts_chk", sql`${table.subtotalCents} >= 0 and ${table.discountCents} >= 0 and ${table.taxCents} >= 0 and ${table.totalCents} >= 0 and ${table.paidCents} >= 0 and ${table.changeCents} >= 0`),
+  ],
+);
+
+export const saleItems = pgTable(
+  "sale_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    saleId: uuid("sale_id").notNull(),
+    serviceId: uuid("service_id").notNull(),
+    employeeId: uuid("employee_id").notNull(),
+    serviceCode: varchar("service_code", { length: 48 }).notNull(),
+    serviceName: varchar("service_name", { length: 160 }).notNull(),
+    employeeName: varchar("employee_name", { length: 160 }).notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    lineTotalCents: integer("line_total_cents").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("sale_items_sale_idx").on(table.companyId, table.saleId),
+    index("sale_items_employee_idx").on(table.companyId, table.employeeId),
+    foreignKey({
+      name: "sale_items_sale_tenant_fk",
+      columns: [table.companyId, table.saleId],
+      foreignColumns: [sales.companyId, sales.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "sale_items_service_tenant_fk",
+      columns: [table.companyId, table.serviceId],
+      foreignColumns: [services.companyId, services.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "sale_items_employee_tenant_fk",
+      columns: [table.companyId, table.employeeId],
+      foreignColumns: [employees.companyId, employees.id],
+    }).onDelete("restrict"),
+    check("sale_items_quantity_chk", sql`${table.quantity} > 0`),
+    check("sale_items_amounts_chk", sql`${table.unitPriceCents} >= 0 and ${table.lineTotalCents} >= 0`),
+  ],
+);
+
+export const salePayments = pgTable(
+  "sale_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id").notNull(),
+    saleId: uuid("sale_id").notNull(),
+    method: paymentMethodEnum("method").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    reference: varchar("reference", { length: 160 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("sale_payments_sale_idx").on(table.companyId, table.saleId),
+    index("sale_payments_method_idx").on(table.companyId, table.method),
+    foreignKey({
+      name: "sale_payments_sale_tenant_fk",
+      columns: [table.companyId, table.saleId],
+      foreignColumns: [sales.companyId, sales.id],
+    }).onDelete("cascade"),
+    check("sale_payments_amount_positive_chk", sql`${table.amountCents} > 0`),
+  ],
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {
@@ -579,3 +704,4 @@ export type Branch = typeof branches.$inferSelect;
 export type Employee = typeof employees.$inferSelect;
 export type Service = typeof services.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
+export type Sale = typeof sales.$inferSelect;

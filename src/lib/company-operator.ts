@@ -64,3 +64,7 @@ export function canManageCatalogs(operator: CompanyOperator) {
 export function canManageAppointments(operator: CompanyOperator) {
   return operator.isPlatformAdmin || ["owner", "admin", "manager", "receptionist"].includes(operator.role ?? "");
 }
+
+export function canManageSales(operator: CompanyOperator) {
+  return operator.isPlatformAdmin || ["owner", "admin", "manager", "receptionist"].includes(operator.role ?? "");
+}
